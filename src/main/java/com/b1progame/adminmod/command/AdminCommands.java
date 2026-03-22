@@ -82,6 +82,10 @@ public final class AdminCommands {
                     .executes(context -> scheduledStopStatus(context, mod))
                     .then(CommandManager.argument("duration", StringArgumentType.word())
                             .executes(context -> scheduledStopStart(context, mod)))
+                    .then(CommandManager.literal("bossbar")
+                            .then(CommandManager.literal("off").executes(context -> scheduledStopBossbar(context, mod, "off")))
+                            .then(CommandManager.literal("self").executes(context -> scheduledStopBossbar(context, mod, "self")))
+                            .then(CommandManager.literal("all").executes(context -> scheduledStopBossbar(context, mod, "all"))))
                     .then(CommandManager.literal("cancel")
                             .executes(context -> scheduledStopCancel(context, mod))));
 
@@ -171,44 +175,46 @@ public final class AdminCommands {
                     .then(CommandManager.literal("tp")
                             .then(CommandManager.argument("id", IntegerArgumentType.integer(1))
                                     .executes(context -> xrayTeleport(context, mod)))));
-            dispatcher.register(CommandManager.literal("heatmap")
-                    .requires(source -> hasAdminCommandPermission(source, mod))
-                    .then(CommandManager.literal("player")
-                            .then(CommandManager.argument("player", StringArgumentType.word())
-                                    .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MOVEMENT))
-                                    .then(CommandManager.argument("duration", StringArgumentType.word())
-                                            .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MOVEMENT)))))
-                    .then(CommandManager.literal("mining")
-                            .then(CommandManager.argument("player", StringArgumentType.word())
-                                    .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MINING))
-                                    .then(CommandManager.argument("duration", StringArgumentType.word())
-                                            .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MINING)))))
-                    .then(CommandManager.literal("ore")
-                            .then(CommandManager.argument("player", StringArgumentType.word())
-                                    .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.ORE))
-                                    .then(CommandManager.argument("duration", StringArgumentType.word())
-                                            .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.ORE)))))
-                    .then(CommandManager.literal("global")
-                            .then(CommandManager.argument("world", StringArgumentType.word())
-                                    .executes(context -> heatmapGlobal(context, mod, HeatmapManager.HeatmapMode.MOVEMENT))
-                                    .then(CommandManager.argument("duration", StringArgumentType.word())
-                                            .executes(context -> heatmapGlobal(context, mod, HeatmapManager.HeatmapMode.MOVEMENT)))))
-                    .then(CommandManager.literal("watchlist")
-                            .executes(context -> heatmapWatchlist(context, mod, HeatmapManager.HeatmapMode.ORE))
-                            .then(CommandManager.argument("duration", StringArgumentType.word())
-                                    .executes(context -> heatmapWatchlist(context, mod, HeatmapManager.HeatmapMode.ORE))))
-                    .then(CommandManager.literal("mode")
-                            .then(CommandManager.argument("mode", StringArgumentType.word())
-                                    .executes(context -> heatmapMode(context, mod))))
-                    .then(CommandManager.literal("radius")
-                            .then(CommandManager.argument("value", IntegerArgumentType.integer(8, 512))
-                                    .executes(context -> heatmapRadius(context, mod))))
-                    .then(CommandManager.literal("info")
-                            .then(CommandManager.argument("player", StringArgumentType.word())
-                                    .executes(context -> heatmapInfo(context, mod, HeatmapManager.HeatmapMode.ORE))
-                                    .then(CommandManager.argument("duration", StringArgumentType.word())
-                                            .executes(context -> heatmapInfo(context, mod, HeatmapManager.HeatmapMode.ORE)))))
-                    .then(CommandManager.literal("stop").executes(context -> heatmapStop(context, mod))));
+            if (mod.heatmapManager().isFeatureEnabled()) {
+                dispatcher.register(CommandManager.literal("heatmap")
+                        .requires(source -> hasAdminCommandPermission(source, mod))
+                        .then(CommandManager.literal("player")
+                                .then(CommandManager.argument("player", StringArgumentType.word())
+                                        .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MOVEMENT))
+                                        .then(CommandManager.argument("duration", StringArgumentType.word())
+                                                .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MOVEMENT)))))
+                        .then(CommandManager.literal("mining")
+                                .then(CommandManager.argument("player", StringArgumentType.word())
+                                        .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MINING))
+                                        .then(CommandManager.argument("duration", StringArgumentType.word())
+                                                .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MINING)))))
+                        .then(CommandManager.literal("ore")
+                                .then(CommandManager.argument("player", StringArgumentType.word())
+                                        .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.ORE))
+                                        .then(CommandManager.argument("duration", StringArgumentType.word())
+                                                .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.ORE)))))
+                        .then(CommandManager.literal("global")
+                                .then(CommandManager.argument("world", StringArgumentType.word())
+                                        .executes(context -> heatmapGlobal(context, mod, HeatmapManager.HeatmapMode.MOVEMENT))
+                                        .then(CommandManager.argument("duration", StringArgumentType.word())
+                                                .executes(context -> heatmapGlobal(context, mod, HeatmapManager.HeatmapMode.MOVEMENT)))))
+                        .then(CommandManager.literal("watchlist")
+                                .executes(context -> heatmapWatchlist(context, mod, HeatmapManager.HeatmapMode.ORE))
+                                .then(CommandManager.argument("duration", StringArgumentType.word())
+                                        .executes(context -> heatmapWatchlist(context, mod, HeatmapManager.HeatmapMode.ORE))))
+                        .then(CommandManager.literal("mode")
+                                .then(CommandManager.argument("mode", StringArgumentType.word())
+                                        .executes(context -> heatmapMode(context, mod))))
+                        .then(CommandManager.literal("radius")
+                                .then(CommandManager.argument("value", IntegerArgumentType.integer(8, 512))
+                                        .executes(context -> heatmapRadius(context, mod))))
+                        .then(CommandManager.literal("info")
+                                .then(CommandManager.argument("player", StringArgumentType.word())
+                                        .executes(context -> heatmapInfo(context, mod, HeatmapManager.HeatmapMode.ORE))
+                                        .then(CommandManager.argument("duration", StringArgumentType.word())
+                                                .executes(context -> heatmapInfo(context, mod, HeatmapManager.HeatmapMode.ORE)))))
+                        .then(CommandManager.literal("stop").executes(context -> heatmapStop(context, mod))));
+            }
 
             if (mod.xrayReplayManager().isFeatureEnabled()) {
                 dispatcher.register(
@@ -1374,14 +1380,96 @@ public final class AdminCommands {
         return 1;
     }
 
+    private static int scheduledStopStart(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        String rawDuration = StringArgumentType.getString(context, "duration");
+        DurationParser.ParseResult parsed = DurationParser.parse(normalizeDurationInput(rawDuration));
+        if (!parsed.valid()) {
+            context.getSource().sendError(Text.literal("Invalid duration. Use formats like 15min, 10m, 1h30m."));
+            return 0;
+        }
+        if (mod.scheduledStopManager().isActive()) {
+            context.getSource().sendError(Text.literal(mod.scheduledStopManager().statusText()));
+            return 0;
+        }
+        boolean started = mod.scheduledStopManager().schedule(context.getSource().getPlayer(), context.getSource().getServer(), parsed.millis());
+        if (!started) {
+            context.getSource().sendError(Text.literal("Could not schedule server stop."));
+            return 0;
+        }
+        context.getSource().sendFeedback(
+                () -> Text.literal("Scheduled server stop in " + DurationParser.formatMillis(parsed.millis()) + "."),
+                true
+        );
+        return 1;
+    }
+
+    private static int scheduledStopCancel(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        boolean canceled = mod.scheduledStopManager().cancel(context.getSource().getPlayer(), context.getSource().getServer());
+        if (!canceled) {
+            context.getSource().sendError(Text.literal("No scheduled server stop is active."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Scheduled server stop canceled."), true);
+        return 1;
+    }
+
+    private static int scheduledStopStatus(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        context.getSource().sendFeedback(() -> Text.literal(mod.scheduledStopManager().statusText()), false);
+        return 1;
+    }
+
+    private static int scheduledStopBossbar(CommandContext<ServerCommandSource> context, AdminMod mod, String rawMode) {
+        com.b1progame.adminmod.maintenance.ScheduledStopManager.BossBarMode mode = switch (rawMode.toLowerCase(Locale.ROOT)) {
+            case "off" -> com.b1progame.adminmod.maintenance.ScheduledStopManager.BossBarMode.OFF;
+            case "self" -> com.b1progame.adminmod.maintenance.ScheduledStopManager.BossBarMode.SELF;
+            case "all" -> com.b1progame.adminmod.maintenance.ScheduledStopManager.BossBarMode.ALL;
+            default -> null;
+        };
+        if (mode == null) {
+            context.getSource().sendError(Text.literal("Invalid mode. Use off|self|all."));
+            return 0;
+        }
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (mode == com.b1progame.adminmod.maintenance.ScheduledStopManager.BossBarMode.SELF && actor == null) {
+            context.getSource().sendError(Text.literal("Console cannot use self mode. Use all or off."));
+            return 0;
+        }
+        mod.scheduledStopManager().setBossBarMode(actor, context.getSource().getServer(), mode);
+        context.getSource().sendFeedback(() -> Text.literal("Server stop bossbar mode set to " + mode.id + "."), true);
+        return 1;
+    }
+
     private static long resolveDurationArgument(CommandContext<ServerCommandSource> context, long defaultMillis) {
         try {
             String raw = StringArgumentType.getString(context, "duration");
-            DurationParser.ParseResult parsed = DurationParser.parse(raw);
+            DurationParser.ParseResult parsed = DurationParser.parse(normalizeDurationInput(raw));
             return parsed.valid() ? parsed.millis() : -1L;
         } catch (IllegalArgumentException ignored) {
             return defaultMillis;
         }
+    }
+
+    private static String normalizeDurationInput(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        normalized = normalized
+                .replace("seconds", "s")
+                .replace("second", "s")
+                .replace("secs", "s")
+                .replace("sec", "s")
+                .replace("minutes", "m")
+                .replace("minute", "m")
+                .replace("mins", "m")
+                .replace("min", "m")
+                .replace("hours", "h")
+                .replace("hour", "h")
+                .replace("hrs", "h")
+                .replace("hr", "h")
+                .replace("days", "d")
+                .replace("day", "d");
+        return normalized.replaceAll("\\s+", "");
     }
 
     private static UUID resolveUuid(AdminMod mod, String player) {

@@ -99,7 +99,7 @@
     "strict_admin_only_ip_access": true
   },
   "heatmap": {
-    "heatmap_enabled": true,
+    "heatmap_enabled": false,
     "heatmap_retention_days": 14,
     "heatmap_cell_size": 8,
     "heatmap_visualization_radius": 96,

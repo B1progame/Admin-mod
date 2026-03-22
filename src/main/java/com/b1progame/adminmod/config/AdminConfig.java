@@ -147,7 +147,7 @@ public final class AdminConfig {
     }
 
     public static final class HeatmapSettings {
-        public boolean heatmap_enabled = true;
+        public boolean heatmap_enabled = false;
         public int heatmap_retention_days = 14;
         public int heatmap_cell_size = 8;
         public int heatmap_visualization_radius = 96;

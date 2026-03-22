@@ -14,6 +14,22 @@ public final class DurationParser {
             return new ParseResult(false, -1L, "Duration is empty.");
         }
         String raw = text.trim().toLowerCase();
+        raw = raw
+                .replace("seconds", "s")
+                .replace("second", "s")
+                .replace("secs", "s")
+                .replace("sec", "s")
+                .replace("minutes", "m")
+                .replace("minute", "m")
+                .replace("mins", "m")
+                .replace("min", "m")
+                .replace("hours", "h")
+                .replace("hour", "h")
+                .replace("hrs", "h")
+                .replace("hr", "h")
+                .replace("days", "d")
+                .replace("day", "d")
+                .replaceAll("\\s+", "");
         long total = 0L;
         int index = 0;
         while (index < raw.length()) {

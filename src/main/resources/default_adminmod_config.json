@@ -1,0 +1,147 @@
+{
+  "allowed_admin_uuids": [],
+  "maintenance_kick_message": "Server entered maintenance mode.",
+  "maintenance_join_denied_message": "Server is in maintenance mode. Please try again later.",
+  "silent_inventory_inspection": true,
+  "vanish_status_messages": {
+    "enabled": "Vanish enabled.",
+    "disabled": "Vanish disabled.",
+    "actionbar": "VANISH ACTIVE"
+  },
+  "vanish_leave_message_default": false,
+  "vanish_fake_join_message_format": "%player% joined the game",
+  "vanish_fake_leave_message_format": "%player% left the game",
+  "vanished_admins_can_see_other_vanished": true,
+  "staff_can_see_vanished_staff": true,
+  "silent_connect_default": false,
+  "silent_disconnect_default": false,
+  "freeze": {
+    "freeze_message": "You have been frozen by staff.",
+    "freeze_actionbar_enabled": true,
+    "persist_through_relog": true
+  },
+  "mute": {
+    "mute_message": "You are muted and cannot chat."
+  },
+  "staff_chat": {
+    "prefix": "[Staff]",
+    "log_messages": true
+  },
+  "bans": {
+    "ban_join_denied_message": "You are banned from this server.",
+    "temp_ban_join_denied_message": "You are temporarily banned."
+  },
+  "xray_tracker": {
+    "enabled": true,
+    "alert_sounds": true,
+    "auto_stealth_review": false,
+    "staff_alerts_enabled": true,
+    "click_to_teleport_enabled": true,
+    "suspicion_score_enabled": true,
+    "suspicion_score_window_minutes": 20,
+    "suspicion_decay_half_life_minutes": 5,
+    "suspicion_alert_threshold": 45,
+    "valuable_ore_immediate_alerts": true,
+    "valuable_repeat_window_minutes": 3,
+    "valuable_repeat_count": 2,
+    "retention_days": 14,
+    "suspicious_ore_count": 8,
+    "suspicious_window_minutes": 10,
+    "tracked_ores": [
+      "minecraft:diamond_ore",
+      "minecraft:deepslate_diamond_ore",
+      "minecraft:coal_ore",
+      "minecraft:deepslate_coal_ore",
+      "minecraft:iron_ore",
+      "minecraft:deepslate_iron_ore",
+      "minecraft:gold_ore",
+      "minecraft:deepslate_gold_ore",
+      "minecraft:emerald_ore",
+      "minecraft:deepslate_emerald_ore",
+      "minecraft:redstone_ore",
+      "minecraft:deepslate_redstone_ore",
+      "minecraft:lapis_ore",
+      "minecraft:deepslate_lapis_ore",
+      "minecraft:ancient_debris"
+    ]
+  },
+  "join_notifications": {
+    "enabled": true,
+    "watchlist_join_notifications": true,
+    "suspicious_player_join_notifications": true,
+    "whitelist_denied_notifications": true,
+    "queue_offline_staff_mail": true,
+    "suspicious_join_score_threshold": 70,
+    "watchlist_join_template": "[Watchlist] %player% joined. Reason: %reason%",
+    "suspicious_join_template": "[XrayNotice] %player% joined with suspicion score %score%.",
+    "banned_attempt_template": "[BanNotice] %player% attempted to join while banned.",
+    "whitelist_denied_template": "[WhitelistNotice] %player% (%uuid%) attempted to join but is not whitelisted."
+  },
+  "rollback_lite": {
+    "max_entries_per_player": 50
+  },
+  "staff_sessions": {
+    "enabled": true,
+    "max_saved_sessions": 500
+  },
+  "command_history": {
+    "enabled": true,
+    "max_entries": 5000,
+    "redaction_rules": [
+      "/login",
+      "/register",
+      "/changepassword"
+    ]
+  },
+  "ip_view": {
+    "ip_view_enabled": true,
+    "strict_admin_only_ip_access": true
+  },
+  "xray_replay": {
+    "enabled": true,
+    "movement_sample_interval_ticks": 2,
+    "rotation_sample_interval_ticks": 2,
+    "visibility_refresh_interval_ticks": 10,
+    "block_snapshot_update_interval_ticks": 10,
+    "max_segment_duration_minutes": 30,
+    "inactivity_stop_seconds": 120,
+    "replay_retention_days": 14,
+    "compression_enabled": true,
+    "max_visible_block_capture_distance": 8,
+    "max_reconstructed_replay_radius_per_step": 24,
+    "replay_playback_tick_ms": 50,
+    "replay_default_speed": 1.0
+  },
+  "gui": {
+    "back_button_texture": ""
+  },
+  "gui_titles": {
+    "main": "gui.adminmod.main.title",
+    "player_list": "gui.adminmod.player_browser.title",
+    "player_manage": "gui.adminmod.player_manage.title",
+    "inventory_menu": "gui.adminmod.inventory_menu.title",
+    "world": "gui.adminmod.world.title",
+    "admin": "gui.adminmod.admin.title",
+    "op_confirm": "gui.adminmod.confirm.op.title",
+    "temp_op_duration": "gui.adminmod.temp_op.duration.title",
+    "temp_op_confirm": "gui.adminmod.temp_op.confirm.title",
+    "notes": "gui.adminmod.notes.title",
+    "inventory_view": "gui.adminmod.inventory.title",
+    "ender_view": "gui.adminmod.ender.title",
+    "confirm_action": "gui.adminmod.confirm.action.title",
+    "player_overview": "gui.adminmod.player_overview.title",
+    "action_history": "gui.adminmod.action_history.title",
+    "snapshots": "gui.adminmod.snapshots.title",
+    "temp_ban_duration": "gui.adminmod.temp_ban.duration.title",
+    "rollback_lite": "gui.adminmod.rollback.title",
+    "xray_settings": "gui.adminmod.xray_settings.title"
+  },
+  "sound_feedback_enabled": true,
+  "logging": {
+    "sensitive_actions": true,
+    "inventory_actions": true,
+    "staff_chat_toggles": true,
+    "command_history_access": true,
+    "ip_view_access": true
+  }
+}

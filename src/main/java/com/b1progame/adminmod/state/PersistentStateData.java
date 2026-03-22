@@ -1,0 +1,46 @@
+package com.b1progame.adminmod.state;
+
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public final class PersistentStateData {
+    public boolean maintenanceEnabled = false;
+    public boolean preMaintenanceWhitelistEnabled = false;
+    public Set<String> originalWhitelistMembers = new HashSet<>();
+    public Set<String> maintenanceTemporaryMembers = new HashSet<>();
+    public Set<String> vanishedPlayers = new HashSet<>();
+    public Set<String> frozenPlayers = new HashSet<>();
+    public Set<String> mutedPlayers = new HashSet<>();
+    public Set<String> staffChatToggles = new HashSet<>();
+    public Map<String, TempOpEntryData> tempOpEntries = new HashMap<>();
+    public Map<String, List<ModerationNoteData>> moderationNotes = new HashMap<>();
+    public Map<String, Integer> moderationNoteCounters = new HashMap<>();
+    public Map<String, PlayerHistoryData> playerHistory = new HashMap<>();
+    public List<InventorySnapshotData> inventorySnapshots = new ArrayList<>();
+    public long nextSnapshotId = 1L;
+    public List<ModerationActionData> moderationActions = new ArrayList<>();
+    public long nextActionId = 1L;
+    public Map<String, BanRecordData> activeBans = new HashMap<>();
+    public List<XrayRecordData> xrayRecords = new ArrayList<>();
+    public long nextXrayRecordId = 1L;
+    public boolean xrayTrackerEnabled = true;
+    public Map<String, WatchlistEntryData> watchlistEntries = new HashMap<>();
+    public List<RollbackEntryData> rollbackEntries = new ArrayList<>();
+    public long nextRollbackEntryId = 1L;
+    public List<StaffSessionData> staffSessions = new ArrayList<>();
+    public long nextStaffSessionId = 1L;
+    public Map<String, Long> activeStaffSessionByUuid = new HashMap<>();
+    public Map<String, Boolean> vanishLeaveMessageToggles = new HashMap<>();
+    public Map<String, Boolean> silentJoinToggles = new HashMap<>();
+    public Map<String, Boolean> silentDisconnectToggles = new HashMap<>();
+    public Map<String, Boolean> xrayOreEnabled = new HashMap<>();
+    public List<CommandHistoryEntryData> commandHistory = new ArrayList<>();
+    public long nextCommandHistoryId = 1L;
+    public List<StaffMailEntryData> pendingStaffMail = new ArrayList<>();
+    public long nextStaffMailId = 1L;
+    public Map<String, XrayReplayWatchEntryData> xrayReplayWatchedPlayers = new HashMap<>();
+}

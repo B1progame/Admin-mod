@@ -2,12 +2,16 @@ package com.b1progame.adminmod.command;
 
 import com.b1progame.adminmod.AdminMod;
 import com.b1progame.adminmod.gui.browser.PlayerBrowserState;
+import com.b1progame.adminmod.heatmap.HeatmapManager;
+import com.b1progame.adminmod.lagidentify.LagIdentifyManager;
 import com.b1progame.adminmod.state.RollbackEntryData;
+import com.b1progame.adminmod.state.LagIdentifyResultData;
 import com.b1progame.adminmod.state.StaffMailEntryData;
 import com.b1progame.adminmod.state.StaffSessionData;
 import com.b1progame.adminmod.state.WatchlistEntryData;
 import com.b1progame.adminmod.state.ModerationNoteData;
 import com.b1progame.adminmod.state.XrayRecordData;
+import com.b1progame.adminmod.state.XrayReplayWatchEntryData;
 import com.b1progame.adminmod.util.DurationParser;
 import com.b1progame.adminmod.util.FeedbackUtil;
 import com.b1progame.adminmod.util.PermissionUtil;
@@ -20,11 +24,17 @@ import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.ClickEvent;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import com.b1progame.adminmod.xrayreplay.XrayReplayManager;
 
 public final class AdminCommands {
     private AdminCommands() {
@@ -66,6 +76,14 @@ public final class AdminCommands {
                     .requires(source -> hasAdminCommandPermission(source, mod))
                     .then(CommandManager.literal("on").executes(context -> maintenance(context, mod, true)))
                     .then(CommandManager.literal("off").executes(context -> maintenance(context, mod, false))));
+
+            dispatcher.register(CommandManager.literal("sstop")
+                    .requires(source -> hasAdminCommandPermission(source, mod))
+                    .executes(context -> scheduledStopStatus(context, mod))
+                    .then(CommandManager.argument("duration", StringArgumentType.word())
+                            .executes(context -> scheduledStopStart(context, mod)))
+                    .then(CommandManager.literal("cancel")
+                            .executes(context -> scheduledStopCancel(context, mod))));
 
             dispatcher.register(CommandManager.literal("vanish")
                     .requires(source -> hasAdminCommandPermission(source, mod))
@@ -153,6 +171,83 @@ public final class AdminCommands {
                     .then(CommandManager.literal("tp")
                             .then(CommandManager.argument("id", IntegerArgumentType.integer(1))
                                     .executes(context -> xrayTeleport(context, mod)))));
+            dispatcher.register(CommandManager.literal("heatmap")
+                    .requires(source -> hasAdminCommandPermission(source, mod))
+                    .then(CommandManager.literal("player")
+                            .then(CommandManager.argument("player", StringArgumentType.word())
+                                    .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MOVEMENT))
+                                    .then(CommandManager.argument("duration", StringArgumentType.word())
+                                            .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MOVEMENT)))))
+                    .then(CommandManager.literal("mining")
+                            .then(CommandManager.argument("player", StringArgumentType.word())
+                                    .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MINING))
+                                    .then(CommandManager.argument("duration", StringArgumentType.word())
+                                            .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.MINING)))))
+                    .then(CommandManager.literal("ore")
+                            .then(CommandManager.argument("player", StringArgumentType.word())
+                                    .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.ORE))
+                                    .then(CommandManager.argument("duration", StringArgumentType.word())
+                                            .executes(context -> heatmapPlayer(context, mod, HeatmapManager.HeatmapMode.ORE)))))
+                    .then(CommandManager.literal("global")
+                            .then(CommandManager.argument("world", StringArgumentType.word())
+                                    .executes(context -> heatmapGlobal(context, mod, HeatmapManager.HeatmapMode.MOVEMENT))
+                                    .then(CommandManager.argument("duration", StringArgumentType.word())
+                                            .executes(context -> heatmapGlobal(context, mod, HeatmapManager.HeatmapMode.MOVEMENT)))))
+                    .then(CommandManager.literal("watchlist")
+                            .executes(context -> heatmapWatchlist(context, mod, HeatmapManager.HeatmapMode.ORE))
+                            .then(CommandManager.argument("duration", StringArgumentType.word())
+                                    .executes(context -> heatmapWatchlist(context, mod, HeatmapManager.HeatmapMode.ORE))))
+                    .then(CommandManager.literal("mode")
+                            .then(CommandManager.argument("mode", StringArgumentType.word())
+                                    .executes(context -> heatmapMode(context, mod))))
+                    .then(CommandManager.literal("radius")
+                            .then(CommandManager.argument("value", IntegerArgumentType.integer(8, 512))
+                                    .executes(context -> heatmapRadius(context, mod))))
+                    .then(CommandManager.literal("info")
+                            .then(CommandManager.argument("player", StringArgumentType.word())
+                                    .executes(context -> heatmapInfo(context, mod, HeatmapManager.HeatmapMode.ORE))
+                                    .then(CommandManager.argument("duration", StringArgumentType.word())
+                                            .executes(context -> heatmapInfo(context, mod, HeatmapManager.HeatmapMode.ORE)))))
+                    .then(CommandManager.literal("stop").executes(context -> heatmapStop(context, mod))));
+
+            if (mod.xrayReplayManager().isFeatureEnabled()) {
+                dispatcher.register(
+                        CommandManager.literal("xrayreplay")
+                                .requires(source -> hasAdminCommandPermission(source, mod))
+                                .then(CommandManager.literal("watch")
+                                        .then(CommandManager.argument("player", StringArgumentType.word())
+                                                .executes(context -> xrayReplayWatch(context, mod))
+                                                .then(CommandManager.argument("reason", StringArgumentType.greedyString())
+                                                        .executes(context -> xrayReplayWatch(context, mod)))))
+                                .then(CommandManager.literal("unwatch")
+                                        .then(CommandManager.argument("player", StringArgumentType.word())
+                                                .executes(context -> xrayReplayUnwatch(context, mod))))
+                                .then(CommandManager.literal("watched").executes(context -> xrayReplayWatched(context, mod)))
+                                .then(CommandManager.literal("status")
+                                        .then(CommandManager.argument("player", StringArgumentType.word())
+                                                .executes(context -> xrayReplayStatus(context, mod))))
+                                .then(CommandManager.literal("list")
+                                        .then(CommandManager.argument("player", StringArgumentType.word())
+                                                .executes(context -> xrayReplayList(context, mod))))
+                                .then(CommandManager.literal("info")
+                                        .then(CommandManager.argument("player", StringArgumentType.word())
+                                                .then(CommandManager.argument("segment", IntegerArgumentType.integer(1))
+                                                        .executes(context -> xrayReplayInfo(context, mod)))))
+                                .then(CommandManager.literal("play")
+                                        .then(CommandManager.argument("player", StringArgumentType.word())
+                                                .then(CommandManager.argument("segment", IntegerArgumentType.integer(1))
+                                                        .executes(context -> xrayReplayPlay(context, mod)))))
+                                .then(CommandManager.literal("latest")
+                                        .then(CommandManager.argument("player", StringArgumentType.word())
+                                                .executes(context -> xrayReplayLatest(context, mod))))
+                                .then(CommandManager.literal("stop")
+                                        .executes(context -> xrayReplayStop(context, mod)))
+                                .then(CommandManager.literal("delete")
+                                        .then(CommandManager.argument("player", StringArgumentType.word())
+                                                .then(CommandManager.argument("segment", IntegerArgumentType.integer(1))
+                                                        .executes(context -> xrayReplayDelete(context, mod)))))
+                );
+            }
 
             dispatcher.register(CommandManager.literal("watchlist")
                     .requires(source -> hasAdminCommandPermission(source, mod))
@@ -169,6 +264,25 @@ public final class AdminCommands {
                     .then(CommandManager.literal("info")
                             .then(CommandManager.argument("player", StringArgumentType.word())
                                     .executes(context -> watchlistInfo(context, mod)))));
+            dispatcher.register(CommandManager.literal("lagidentify")
+                    .requires(source -> hasAdminCommandPermission(source, mod))
+                    .then(CommandManager.literal("scan")
+                            .executes(context -> lagIdentifyScan(context, mod))
+                            .then(CommandManager.argument("scope", StringArgumentType.word())
+                                    .executes(context -> lagIdentifyScan(context, mod))))
+                    .then(CommandManager.literal("refresh").executes(context -> lagIdentifyScan(context, mod)))
+                    .then(CommandManager.literal("stop").executes(context -> lagIdentifyStop(context, mod)))
+                    .then(CommandManager.literal("results").executes(context -> lagIdentifyList(context, mod)))
+                    .then(CommandManager.literal("list").executes(context -> lagIdentifyList(context, mod)))
+                    .then(CommandManager.literal("clear").executes(context -> lagIdentifyClear(context, mod)))
+                    .then(CommandManager.literal("settings").executes(context -> lagIdentifySettings(context, mod)))
+                    .then(CommandManager.literal("info")
+                            .then(CommandManager.argument("result-id", IntegerArgumentType.integer(1))
+                                    .executes(context -> lagIdentifyInfo(context, mod))))
+                    .then(CommandManager.literal("tp")
+                            .then(CommandManager.argument("result-id", IntegerArgumentType.integer(1))
+                                    .executes(context -> lagIdentifyTp(context, mod))))
+                    .then(CommandManager.literal("back").executes(context -> lagIdentifyBack(context, mod))));
 
             dispatcher.register(CommandManager.literal("rollbacklite")
                     .requires(source -> hasAdminCommandPermission(source, mod))
@@ -789,6 +903,485 @@ public final class AdminCommands {
             ), false);
         }
         return 1;
+    }
+
+    private static int xrayReplayWatch(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        String reason = context.getNodes().stream().anyMatch(n -> n.getNode().getName().equals("reason"))
+                ? StringArgumentType.getString(context, "reason")
+                : "Watched for xray replay";
+        String name = resolveName(mod, targetUuid);
+        boolean changed = mod.xrayReplayManager().watch(context.getSource().getPlayer(), targetUuid, name, reason);
+        if (!changed) {
+            context.getSource().sendError(Text.literal("Player is already watched."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Xray replay watching " + name + "."), true);
+        return 1;
+    }
+
+    private static int xrayReplayUnwatch(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        boolean changed = mod.xrayReplayManager().unwatch(context.getSource().getPlayer(), targetUuid);
+        if (!changed) {
+            context.getSource().sendError(Text.literal("Player is not watched."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Removed player from xray replay watch list."), true);
+        return 1;
+    }
+
+    private static int xrayReplayWatched(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        List<XrayReplayWatchEntryData> watched = mod.xrayReplayManager().watched();
+        if (watched.isEmpty()) {
+            context.getSource().sendFeedback(() -> Text.literal("No watched players."), false);
+            return 1;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Xray replay watched players:"), false);
+        for (XrayReplayWatchEntryData entry : watched) {
+            context.getSource().sendFeedback(() -> Text.literal(
+                    entry.lastKnownName + " (" + entry.targetUuid + ") reason=" + (entry.reason == null || entry.reason.isBlank() ? "-" : entry.reason)
+            ), false);
+        }
+        return 1;
+    }
+
+    private static int xrayReplayStatus(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        boolean watched = mod.xrayReplayManager().isWatched(targetUuid);
+        XrayReplayManager.SegmentMeta latest = mod.xrayReplayManager().latestSegment(targetUuid);
+        context.getSource().sendFeedback(() -> Text.literal("Watched: " + watched), false);
+        if (latest != null) {
+            context.getSource().sendFeedback(() -> Text.literal("Latest segment: #" + latest.segmentId + " duration=" + DurationParser.formatMillis(latest.durationMillis)), false);
+        } else {
+            context.getSource().sendFeedback(() -> Text.literal("Latest segment: none"), false);
+        }
+        return 1;
+    }
+
+    private static int xrayReplayList(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        List<XrayReplayManager.SegmentMeta> list = mod.xrayReplayManager().listSegments(targetUuid);
+        if (list.isEmpty()) {
+            context.getSource().sendFeedback(() -> Text.literal("No replay segments for player."), false);
+            return 1;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Replay segments for " + resolveName(mod, targetUuid) + ":"), false);
+        for (XrayReplayManager.SegmentMeta meta : list) {
+            context.getSource().sendFeedback(() -> Text.literal(
+                    "#" + meta.segmentId + " " + Instant.ofEpochMilli(meta.startEpochMillis) + " duration=" + DurationParser.formatMillis(meta.durationMillis)
+                            + " samples=" + meta.movementSampleCount + " visible=" + meta.visibleBlockCount
+            ), false);
+        }
+        return 1;
+    }
+
+    private static int xrayReplayInfo(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        long segment = IntegerArgumentType.getInteger(context, "segment");
+        XrayReplayManager.SegmentMeta meta = mod.xrayReplayManager().segmentInfo(targetUuid, segment);
+        if (meta == null) {
+            context.getSource().sendError(Text.literal("Segment not found."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Segment #" + meta.segmentId + " for " + meta.playerName + ":"), false);
+        context.getSource().sendFeedback(() -> Text.literal("Start: " + Instant.ofEpochMilli(meta.startEpochMillis)), false);
+        context.getSource().sendFeedback(() -> Text.literal("End: " + Instant.ofEpochMilli(meta.endEpochMillis)), false);
+        context.getSource().sendFeedback(() -> Text.literal("Duration: " + DurationParser.formatMillis(meta.durationMillis)), false);
+        context.getSource().sendFeedback(() -> Text.literal("Samples: " + meta.movementSampleCount + ", blockEvents: " + meta.blockEventCount + ", visibleBlocks: " + meta.visibleBlockCount), false);
+        context.getSource().sendFeedback(() -> Text.literal("Suspicion: " + (meta.suspicionSummary == null ? "-" : meta.suspicionSummary)), false);
+        return 1;
+    }
+
+    private static int xrayReplayPlay(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can play replays."));
+            return 0;
+        }
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        long segment = IntegerArgumentType.getInteger(context, "segment");
+        boolean started = mod.xrayReplayManager().play(actor, targetUuid, segment);
+        if (!started) {
+            context.getSource().sendError(Text.literal("Replay segment failed to load."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Replay started."), false);
+        return 1;
+    }
+
+    private static int xrayReplayLatest(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can play replays."));
+            return 0;
+        }
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        boolean started = mod.xrayReplayManager().playLatest(actor, targetUuid);
+        if (!started) {
+            context.getSource().sendError(Text.literal("No replay segment available."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Latest replay started."), false);
+        return 1;
+    }
+
+    private static int xrayReplayStop(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can stop replay."));
+            return 0;
+        }
+        boolean stopped = mod.xrayReplayManager().stop(actor);
+        if (!stopped) {
+            context.getSource().sendError(Text.literal("No active replay session."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Replay stopped."), false);
+        return 1;
+    }
+
+    private static int xrayReplayDelete(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        long segment = IntegerArgumentType.getInteger(context, "segment");
+        boolean removed = mod.xrayReplayManager().deleteSegment(context.getSource().getPlayer(), targetUuid, segment);
+        if (!removed) {
+            context.getSource().sendError(Text.literal("Segment not found."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Replay segment deleted."), true);
+        return 1;
+    }
+
+    private static int heatmapPlayer(CommandContext<ServerCommandSource> context, AdminMod mod, HeatmapManager.HeatmapMode mode) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can start heatmap review."));
+            return 0;
+        }
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        long duration = resolveDurationArgument(context, 30 * 60_000L);
+        if (duration < 0L) {
+            context.getSource().sendError(Text.literal("Invalid duration. Use formats like 30m, 1h, 24h."));
+            return 0;
+        }
+        boolean started = mod.heatmapManager().startPlayerView(actor, targetUuid, mode, duration);
+        if (!started) {
+            context.getSource().sendError(Text.literal("Unable to start heatmap review."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Heatmap started: mode=" + mode.id + ", target=" + resolveName(mod, targetUuid) + ", duration=" + DurationParser.formatMillis(duration)), false);
+        return 1;
+    }
+
+    private static int heatmapGlobal(CommandContext<ServerCommandSource> context, AdminMod mod, HeatmapManager.HeatmapMode mode) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can start heatmap review."));
+            return 0;
+        }
+        String world = StringArgumentType.getString(context, "world");
+        if (!world.contains(":")) {
+            world = "minecraft:" + world;
+        }
+        long duration = resolveDurationArgument(context, 30 * 60_000L);
+        if (duration < 0L) {
+            context.getSource().sendError(Text.literal("Invalid duration. Use formats like 30m, 1h, 24h."));
+            return 0;
+        }
+        boolean started = mod.heatmapManager().startGlobalView(actor, world, mode, duration);
+        if (!started) {
+            context.getSource().sendError(Text.literal("Unable to start global heatmap review."));
+            return 0;
+        }
+        final String worldId = world;
+        context.getSource().sendFeedback(() -> Text.literal("Global heatmap started: mode=" + mode.id + ", world=" + worldId + ", duration=" + DurationParser.formatMillis(duration)), false);
+        return 1;
+    }
+
+    private static int heatmapWatchlist(CommandContext<ServerCommandSource> context, AdminMod mod, HeatmapManager.HeatmapMode mode) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can start heatmap review."));
+            return 0;
+        }
+        long duration = resolveDurationArgument(context, 30 * 60_000L);
+        if (duration < 0L) {
+            context.getSource().sendError(Text.literal("Invalid duration. Use formats like 30m, 1h, 24h."));
+            return 0;
+        }
+        boolean started = mod.heatmapManager().startWatchlistView(actor, mode, duration);
+        if (!started) {
+            context.getSource().sendError(Text.literal("Unable to start watchlist heatmap review."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Watchlist heatmap started: mode=" + mode.id + ", duration=" + DurationParser.formatMillis(duration)), false);
+        return 1;
+    }
+
+    private static int heatmapStop(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can stop heatmap review."));
+            return 0;
+        }
+        boolean stopped = mod.heatmapManager().stop(actor);
+        if (!stopped) {
+            context.getSource().sendError(Text.literal("No active heatmap review session."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Heatmap review stopped."), false);
+        return 1;
+    }
+
+    private static int heatmapRadius(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can set heatmap radius."));
+            return 0;
+        }
+        int radius = IntegerArgumentType.getInteger(context, "value");
+        boolean changed = mod.heatmapManager().setRadius(actor, radius);
+        if (!changed) {
+            context.getSource().sendError(Text.literal("No active heatmap session."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Heatmap radius set to " + radius + "."), false);
+        return 1;
+    }
+
+    private static int heatmapMode(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can set heatmap mode."));
+            return 0;
+        }
+        String modeRaw = StringArgumentType.getString(context, "mode");
+        HeatmapManager.HeatmapMode mode = HeatmapManager.HeatmapMode.parse(modeRaw);
+        if (mode == null) {
+            context.getSource().sendError(Text.literal("Invalid mode. Use movement|mining|ore|suspicious."));
+            return 0;
+        }
+        boolean changed = mod.heatmapManager().setMode(actor, mode);
+        if (!changed) {
+            context.getSource().sendError(Text.literal("No active heatmap session."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Heatmap mode set to " + mode.id + "."), false);
+        return 1;
+    }
+
+    private static int heatmapInfo(CommandContext<ServerCommandSource> context, AdminMod mod, HeatmapManager.HeatmapMode mode) {
+        UUID targetUuid = resolveUuid(mod, StringArgumentType.getString(context, "player"));
+        if (targetUuid == null) {
+            context.getSource().sendError(Text.literal("Player not found."));
+            return 0;
+        }
+        long duration = resolveDurationArgument(context, 24 * 60 * 60_000L);
+        if (duration < 0L) {
+            context.getSource().sendError(Text.literal("Invalid duration. Use formats like 30m, 1h, 24h."));
+            return 0;
+        }
+        List<String> lines = mod.heatmapManager().describeTopHotspots(mode, targetUuid, false, "", duration, 10);
+        if (lines.isEmpty()) {
+            context.getSource().sendFeedback(() -> Text.literal("No heatmap hotspots for " + resolveName(mod, targetUuid) + " in selected range."), false);
+            return 1;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Heatmap hotspots for " + resolveName(mod, targetUuid) + " (" + mode.id + "):"), false);
+        for (String line : lines) {
+            context.getSource().sendFeedback(() -> Text.literal(line), false);
+        }
+        return 1;
+    }
+
+    private static int lagIdentifyScan(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can run lag identify scan."));
+            return 0;
+        }
+        String scope;
+        try {
+            scope = StringArgumentType.getString(context, "scope");
+        } catch (IllegalArgumentException ignored) {
+            scope = "";
+        }
+        if (mod.lagIdentifyManager().isScanRunning()) {
+            context.getSource().sendError(Text.literal(mod.lagIdentifyManager().activeScanProgress()));
+            return 0;
+        }
+        boolean started = mod.lagIdentifyManager().startScan(actor, scope);
+        if (!started) {
+            context.getSource().sendError(Text.literal("Could not start scan."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Lag identify scan started."), false);
+        return 1;
+    }
+
+    private static int lagIdentifyStop(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        boolean stopped = mod.lagIdentifyManager().stopScan(context.getSource().getPlayer());
+        if (!stopped) {
+            context.getSource().sendError(Text.literal("No scan is running."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Lag identify scan stopped."), false);
+        return 1;
+    }
+
+    private static int lagIdentifyList(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        List<LagIdentifyResultData> results = mod.lagIdentifyManager().listResults();
+        if (results.isEmpty()) {
+            context.getSource().sendFeedback(() -> Text.literal("No lag hotspots found."), false);
+            return 1;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Lag hotspot results (items>20 or entities>20):").formatted(Formatting.GOLD), false);
+        for (int i = 0; i < results.size() && i < 20; i++) {
+            LagIdentifyResultData result = results.get(i);
+            Formatting scoreColor = result.score >= 120.0D ? Formatting.RED
+                    : result.score >= 80.0D ? Formatting.GOLD
+                    : result.score >= 50.0D ? Formatting.YELLOW
+                    : Formatting.GREEN;
+            Text idPart = Text.literal("#" + result.resultId + " ").formatted(Formatting.AQUA);
+            Text scorePart = Text.literal("[" + String.format(Locale.ROOT, "%.1f", result.score) + "] ").formatted(scoreColor);
+            Text worldPart = Text.literal(result.world + " ").formatted(Formatting.GRAY);
+            Text chunkPart = Text.literal("chunk(" + result.chunkX + "," + result.chunkZ + ") ").formatted(Formatting.GRAY);
+            Text amountPart = Text.literal("items=" + result.droppedItems + " entities=" + result.totalEntities + " ").formatted(Formatting.WHITE);
+            Text summaryPart = Text.literal(result.summary).formatted(Formatting.DARK_GRAY);
+            Text tpButton = Text.literal("[TP]").setStyle(
+                    Style.EMPTY.withColor(Formatting.GREEN)
+                            .withClickEvent(new ClickEvent.RunCommand("/lagidentify tp " + result.resultId))
+                            .withHoverEvent(new net.minecraft.text.HoverEvent.ShowText(Text.literal("Teleport to hotspot #" + result.resultId)))
+            );
+            Text infoButton = Text.literal(" [INFO]").setStyle(
+                    Style.EMPTY.withColor(Formatting.YELLOW)
+                            .withClickEvent(new ClickEvent.RunCommand("/lagidentify info " + result.resultId))
+                            .withHoverEvent(new net.minecraft.text.HoverEvent.ShowText(Text.literal("Show full hotspot details")))
+            );
+            Text line = idPart.copy().append(scorePart).append(worldPart).append(chunkPart).append(amountPart).append(summaryPart).append(Text.literal(" ")).append(tpButton).append(infoButton);
+            context.getSource().sendFeedback(() -> line, false);
+        }
+        return 1;
+    }
+
+    private static int lagIdentifyInfo(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        long id = IntegerArgumentType.getInteger(context, "result-id");
+        LagIdentifyResultData result = mod.lagIdentifyManager().getResult(id);
+        if (result == null) {
+            context.getSource().sendError(Text.literal("Result not found."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Lag hotspot #" + result.resultId + " " + result.category), false);
+        context.getSource().sendFeedback(() -> Text.literal("world=" + result.world + " chunk=(" + result.chunkX + "," + result.chunkZ + ") pos=(" + result.centerX + "," + result.centerY + "," + result.centerZ + ")"), false);
+        context.getSource().sendFeedback(() -> Text.literal("score=" + String.format(Locale.ROOT, "%.2f", result.score) + " summary=" + result.summary), false);
+        context.getSource().sendFeedback(() -> Text.literal(
+                "entities=" + result.totalEntities
+                        + " items=" + result.droppedItems
+                        + " mobs=" + result.mobs
+                        + " projectiles=" + result.projectiles
+                        + " villagers=" + result.villagers
+                        + " xp_orbs=" + result.xpOrbs
+        ), false);
+        context.getSource().sendFeedback(() -> Text.literal(
+                "block_entities=" + result.blockEntities
+                        + " ticking=" + result.tickingBlockEntities
+                        + " hoppers=" + result.hoppers
+                        + " containers=" + result.containers
+                        + " redstone=" + result.redstoneComponents
+        ), false);
+        return 1;
+    }
+
+    private static int lagIdentifyTp(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can teleport to hotspot."));
+            return 0;
+        }
+        long id = IntegerArgumentType.getInteger(context, "result-id");
+        boolean ok = mod.lagIdentifyManager().teleportToResult(actor, id);
+        if (!ok) {
+            context.getSource().sendError(Text.literal("Failed to teleport to hotspot."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Teleported to lag hotspot #" + id + "."), false);
+        return 1;
+    }
+
+    private static int lagIdentifyBack(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can use this."));
+            return 0;
+        }
+        boolean ok = mod.lagIdentifyManager().back(actor);
+        if (!ok) {
+            context.getSource().sendError(Text.literal("No previous lagidentify location."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Returned to previous location."), false);
+        return 1;
+    }
+
+    private static int lagIdentifyClear(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        boolean ok = mod.lagIdentifyManager().clearResults(context.getSource().getPlayer());
+        if (!ok) {
+            context.getSource().sendError(Text.literal("Could not clear results."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Lag identify results cleared."), false);
+        return 1;
+    }
+
+    private static int lagIdentifySettings(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        context.getSource().sendFeedback(() -> Text.literal("LagIdentify settings: " + mod.lagIdentifyManager().settingsSummary()), false);
+        return 1;
+    }
+
+    private static long resolveDurationArgument(CommandContext<ServerCommandSource> context, long defaultMillis) {
+        try {
+            String raw = StringArgumentType.getString(context, "duration");
+            DurationParser.ParseResult parsed = DurationParser.parse(raw);
+            return parsed.valid() ? parsed.millis() : -1L;
+        } catch (IllegalArgumentException ignored) {
+            return defaultMillis;
+        }
     }
 
     private static UUID resolveUuid(AdminMod mod, String player) {

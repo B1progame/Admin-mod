@@ -1179,10 +1179,13 @@ public final class ModerationManager {
 
     private void registerXrayTracker() {
         PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
-            if (!isXrayTrackerEnabled()) {
+            if (!(player instanceof ServerPlayerEntity serverPlayer)) {
                 return;
             }
-            if (!(player instanceof ServerPlayerEntity serverPlayer)) {
+            if (AdminMod.get() != null && AdminMod.get().heatmapManager() != null) {
+                AdminMod.get().heatmapManager().recordMiningBreak(serverPlayer, pos);
+            }
+            if (!isXrayTrackerEnabled()) {
                 return;
             }
             String blockId = Registries.BLOCK.getId(state.getBlock()).toString();
@@ -1208,6 +1211,9 @@ public final class ModerationManager {
         record.createdAtEpochMillis = System.currentTimeMillis();
         state.xrayRecords.add(record);
         this.stateManager.markDirty(ServerAccess.server(player));
+        if (AdminMod.get() != null && AdminMod.get().xrayReplayManager() != null) {
+            AdminMod.get().xrayReplayManager().onTrackedOreBreak(player, record.oreBlockId, pos);
+        }
 
         int threshold = Math.max(1, this.configManager.get().xray_tracker.suspicious_ore_count);
         int windowMinutes = Math.max(1, this.configManager.get().xray_tracker.suspicious_window_minutes);
@@ -1223,6 +1229,9 @@ public final class ModerationManager {
         boolean valuableSuspicious = this.configManager.get().xray_tracker.valuable_ore_immediate_alerts
                 && isValuableOre(record.oreBlockId)
                 && countValuableFindsWithin(player.getUuid(), this.configManager.get().xray_tracker.valuable_repeat_window_minutes) >= Math.max(1, this.configManager.get().xray_tracker.valuable_repeat_count);
+        if (AdminMod.get() != null && AdminMod.get().heatmapManager() != null) {
+            AdminMod.get().heatmapManager().recordTrackedOre(player, pos, scoreSuspicious || valuableSuspicious);
+        }
         alertStaffForXray(player, record, recent, windowMinutes, recent.size() >= threshold || scoreSuspicious || valuableSuspicious);
     }
 

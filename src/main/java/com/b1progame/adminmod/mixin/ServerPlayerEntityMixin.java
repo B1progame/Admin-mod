@@ -15,6 +15,11 @@ public abstract class ServerPlayerEntityMixin {
         if (AdminMod.get() != null && AdminMod.get().moderationManager() != null
                 && AdminMod.get().moderationManager().isFrozen(self.getUuid())) {
             cir.cancel();
+            return;
+        }
+        if (AdminMod.get() != null && AdminMod.get().xrayReplayManager() != null
+                && AdminMod.get().xrayReplayManager().isReplayLocked(self.getUuid())) {
+            cir.cancel();
         }
     }
 }

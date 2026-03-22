@@ -4,6 +4,7 @@
   "package": "com.b1progame.adminmod.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "EntityNoClipAccessor",
     "ServerLoginNetworkHandlerAccessor",
     "ServerPlayerEntityMixin",
     "ServerPlayNetworkHandlerMixin"

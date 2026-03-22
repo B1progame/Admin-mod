@@ -43,4 +43,8 @@ public final class PersistentStateData {
     public List<StaffMailEntryData> pendingStaffMail = new ArrayList<>();
     public long nextStaffMailId = 1L;
     public Map<String, XrayReplayWatchEntryData> xrayReplayWatchedPlayers = new HashMap<>();
+    public List<HeatmapCellData> heatmapCells = new ArrayList<>();
+    public List<LagIdentifyResultData> lagIdentifyResults = new ArrayList<>();
+    public long nextLagIdentifyResultId = 1L;
+    public long nextLagIdentifyScanSessionId = 1L;
 }

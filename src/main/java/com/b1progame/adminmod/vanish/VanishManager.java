@@ -2,6 +2,7 @@ package com.b1progame.adminmod.vanish;
 
 import com.b1progame.adminmod.AdminMod;
 import com.b1progame.adminmod.config.ConfigManager;
+import com.b1progame.adminmod.mixin.EntityNoClipAccessor;
 import com.b1progame.adminmod.state.PersistentStateData;
 import com.b1progame.adminmod.state.StateManager;
 import com.b1progame.adminmod.util.AuditLogger;
@@ -19,8 +20,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.world.GameMode;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -30,6 +35,7 @@ public final class VanishManager {
 
     private final ConfigManager configManager;
     private final StateManager stateManager;
+    private final Map<UUID, GameMode> noClipPreviousGameModes = new HashMap<>();
     private int actionbarTicker = 0;
 
     public VanishManager(ConfigManager configManager, StateManager stateManager) {
@@ -100,6 +106,7 @@ public final class VanishManager {
     }
 
     public synchronized void tick(MinecraftServer server) {
+        applyNoClipState(server);
         this.actionbarTicker++;
         if (this.actionbarTicker < ACTIONBAR_PERIOD_TICKS) {
             scrubHiddenEquipment(server);
@@ -123,6 +130,7 @@ public final class VanishManager {
         player.getAbilities().allowFlying = true;
         player.getAbilities().flying = true;
         player.sendAbilitiesUpdate();
+        applyNoClipForPlayer(player);
         player.sendMessage(Text.literal(this.configManager.get().vanish_status_messages.enabled).formatted(Formatting.GREEN), false);
     }
 
@@ -136,7 +144,49 @@ public final class VanishManager {
             player.getAbilities().allowFlying = false;
             player.sendAbilitiesUpdate();
         }
+        disableNoClipForPlayer(player);
         player.sendMessage(Text.literal(this.configManager.get().vanish_status_messages.disabled).formatted(Formatting.RED), false);
+    }
+
+    private void applyNoClipState(MinecraftServer server) {
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            if (isVanished(player.getUuid())) {
+                applyNoClipForPlayer(player);
+            } else {
+                disableNoClipForPlayer(player);
+            }
+        }
+    }
+
+    private void applyNoClipForPlayer(ServerPlayerEntity player) {
+        if (!this.configManager.get().vanish_noclip_enabled) {
+            disableNoClipForPlayer(player);
+            return;
+        }
+        UUID uuid = player.getUuid();
+        this.noClipPreviousGameModes.putIfAbsent(uuid, player.interactionManager.getGameMode());
+        if (player.interactionManager.getGameMode() != GameMode.SPECTATOR) {
+            player.changeGameMode(GameMode.SPECTATOR);
+        }
+        setNoClip(player, true);
+    }
+
+    private void disableNoClipForPlayer(ServerPlayerEntity player) {
+        UUID uuid = player.getUuid();
+        GameMode previous = this.noClipPreviousGameModes.remove(uuid);
+        if (previous != null && player.interactionManager.getGameMode() != previous) {
+            player.changeGameMode(previous);
+        }
+        if (!player.isSpectator()) {
+            setNoClip(player, false);
+        }
+    }
+
+    private void setNoClip(ServerPlayerEntity player, boolean enabled) {
+        EntityNoClipAccessor accessor = (EntityNoClipAccessor) player;
+        if (accessor.adminmod$isNoClip() != enabled) {
+            accessor.adminmod$setNoClip(enabled);
+        }
     }
 
     private void refreshAllVisibility(MinecraftServer server) {
@@ -201,6 +251,35 @@ public final class VanishManager {
         this.stateManager.state().vanishLeaveMessageToggles.put(actor.getUuidAsString(), enabled);
         this.stateManager.markDirty(ServerAccess.server(actor));
         AuditLogger.sensitive(this.configManager, AuditLogger.actor(actor) + " set vanish leave-message to " + enabled);
+    }
+
+    public synchronized boolean interceptDirectMessageCommand(ServerPlayerEntity sender, String rawCommand) {
+        if (sender == null || rawCommand == null || rawCommand.isBlank()) {
+            return false;
+        }
+        String normalized = rawCommand.startsWith("/") ? rawCommand.substring(1) : rawCommand;
+        String[] parts = normalized.split("\\s+", 3);
+        if (parts.length < 2) {
+            return false;
+        }
+        String root = parts[0].toLowerCase(Locale.ROOT);
+        if (!root.equals("msg") && !root.equals("tell") && !root.equals("w") && !root.equals("whisper")) {
+            return false;
+        }
+        MinecraftServer server = ServerAccess.server(sender);
+        ServerPlayerEntity target = server.getPlayerManager().getPlayer(parts[1]);
+        if (target == null || !isVanished(target.getUuid()) || canViewerSeeVanished(sender)) {
+            return false;
+        }
+        String attempted = parts.length >= 3 ? parts[2] : "";
+        Text notice = Text.literal("[Hidden DM Attempt] ")
+                .formatted(Formatting.DARK_GRAY)
+                .append(Text.literal(sender.getGameProfile().name()).formatted(Formatting.GRAY))
+                .append(Text.literal(" -> you: ").formatted(Formatting.DARK_GRAY))
+                .append(Text.literal(attempted).formatted(Formatting.GRAY));
+        target.sendMessage(notice, false);
+        sender.sendMessage(Text.literal("No player was found"), false);
+        return true;
     }
 
     private void scrubHiddenEquipment(MinecraftServer server) {

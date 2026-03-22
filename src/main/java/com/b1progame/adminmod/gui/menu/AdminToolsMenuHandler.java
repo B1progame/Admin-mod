@@ -19,6 +19,7 @@ public final class AdminToolsMenuHandler extends AbstractActionMenuScreenHandler
     private static final int SLOT_SILENT_QUIT = 20;
     private static final int SLOT_VANISH_LEAVE_MSG = 22;
     private static final int SLOT_XRAY_SETTINGS = 24;
+    private static final int SLOT_VANISH_NOCLIP = 26;
     private static final int SLOT_BACK = 31;
 
     private final AdminGuiService guiService;
@@ -70,6 +71,15 @@ public final class AdminToolsMenuHandler extends AbstractActionMenuScreenHandler
                 Items.DEEPSLATE_DIAMOND_ORE,
                 Text.literal("Xray Settings").formatted(Formatting.AQUA),
                 List.of(Text.literal("Open tracker settings"))
+        ));
+        boolean noClip = this.guiService.configManager().get().vanish_noclip_enabled;
+        this.menuInventory.setStack(SLOT_VANISH_NOCLIP, GuiItemFactory.button(
+                noClip ? Items.ENDER_PEARL : Items.SNOWBALL,
+                Text.literal("Vanish NoClip").formatted(noClip ? Formatting.GREEN : Formatting.RED),
+                List.of(
+                        Text.literal(noClip ? "ON" : "OFF"),
+                        Text.literal("When ON, vanished staff can pass through blocks")
+                )
         ));
         this.menuInventory.setStack(SLOT_BACK, GuiItemFactory.backButton(this.guiService.configManager()));
     }
@@ -124,6 +134,14 @@ public final class AdminToolsMenuHandler extends AbstractActionMenuScreenHandler
         }
         if (slot == SLOT_XRAY_SETTINGS) {
             this.guiService.openXraySettings(viewer);
+            return;
+        }
+        if (slot == SLOT_VANISH_NOCLIP) {
+            boolean next = !this.guiService.configManager().get().vanish_noclip_enabled;
+            this.guiService.configManager().get().vanish_noclip_enabled = next;
+            this.guiService.configManager().save();
+            FeedbackUtil.success(viewer, this.guiService.configManager(), Text.literal("Vanish NoClip: " + (next ? "ON" : "OFF")));
+            this.guiService.openAdminToolsMenu(viewer);
         }
     }
 }

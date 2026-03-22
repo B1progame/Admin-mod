@@ -75,6 +75,8 @@ public final class StateManager {
         if (state.xrayRecords == null) state.xrayRecords = new ArrayList<>();
         if (state.pendingStaffMail == null) state.pendingStaffMail = new ArrayList<>();
         if (state.xrayReplayWatchedPlayers == null) state.xrayReplayWatchedPlayers = new HashMap<>();
+        if (state.heatmapCells == null) state.heatmapCells = new ArrayList<>();
+        if (state.lagIdentifyResults == null) state.lagIdentifyResults = new ArrayList<>();
     }
 
     private Path statePath(MinecraftServer server) {

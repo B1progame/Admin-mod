@@ -1,6 +1,7 @@
 package com.b1progame.adminmod.gui.data;
 
 import com.b1progame.adminmod.gui.browser.PlayerBrowserEntry;
+import com.mojang.authlib.GameProfile;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
@@ -48,6 +49,7 @@ public final class PlayerDataRepository {
             data.health = -1.0F;
             data.gameMode = null;
             data.dataAvailable = hasPlayerData(server, entry.getKey());
+            data.profile = new GameProfile(entry.getKey(), entry.getValue());
             byUuid.put(entry.getKey(), data);
         }
 
@@ -62,6 +64,7 @@ public final class PlayerDataRepository {
             online.health = player.getHealth();
             online.gameMode = player.interactionManager.getGameMode();
             online.dataAvailable = true;
+            online.profile = player.getGameProfile();
         }
 
         return new ArrayList<>(byUuid.values());

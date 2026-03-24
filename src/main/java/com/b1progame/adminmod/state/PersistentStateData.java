@@ -37,6 +37,11 @@ public final class PersistentStateData {
     public Map<String, Boolean> vanishLeaveMessageToggles = new HashMap<>();
     public Map<String, Boolean> silentJoinToggles = new HashMap<>();
     public Map<String, Boolean> silentDisconnectToggles = new HashMap<>();
+    public Map<String, Boolean> consoleChatToggles = new HashMap<>();
+    public Map<String, Boolean> pendingSilentJoinRestore = new HashMap<>();
+    public Map<String, Boolean> pendingSilentDisconnectRestore = new HashMap<>();
+    public Map<String, Integer> vanishFlySpeedLevels = new HashMap<>();
+    public Map<String, Boolean> vanishNightVisionToggles = new HashMap<>();
     public Map<String, Boolean> xrayOreEnabled = new HashMap<>();
     public List<CommandHistoryEntryData> commandHistory = new ArrayList<>();
     public long nextCommandHistoryId = 1L;

@@ -16,6 +16,8 @@ public final class AdminConfig {
     public boolean vanished_admins_can_see_other_vanished = true;
     public boolean staff_can_see_vanished_staff = true;
     public boolean vanish_noclip_enabled = false;
+    public boolean vanish_load_chunks_enabled = true;
+    public boolean vanish_load_entities_enabled = true;
     public boolean silent_connect_default = false;
     public boolean silent_disconnect_default = false;
     public FreezeSettings freeze = new FreezeSettings();
@@ -62,6 +64,7 @@ public final class AdminConfig {
         public String temp_ban_duration = "gui.adminmod.temp_ban.duration.title";
         public String rollback_lite = "gui.adminmod.rollback.title";
         public String xray_settings = "gui.adminmod.xray_settings.title";
+        public String vanish_settings = "gui.adminmod.vanish_settings.title";
     }
 
     public static final class GuiSettings {

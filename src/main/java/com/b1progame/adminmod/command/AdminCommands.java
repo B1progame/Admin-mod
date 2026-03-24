@@ -60,6 +60,9 @@ public final class AdminCommands {
                     .then(CommandManager.literal("silentdisconnect")
                             .then(CommandManager.literal("on").executes(context -> silentDisconnect(context, mod, true)))
                             .then(CommandManager.literal("off").executes(context -> silentDisconnect(context, mod, false))))
+                    .then(CommandManager.literal("vanishrejoin")
+                            .then(CommandManager.literal("yes").executes(context -> vanishRejoin(context, mod, true)))
+                            .then(CommandManager.literal("no").executes(context -> vanishRejoin(context, mod, false))))
                     .then(CommandManager.literal("mail")
                             .executes(context -> openStaffMail(context, mod))
                             .then(CommandManager.literal("open").executes(context -> openStaffMail(context, mod)))
@@ -86,6 +89,10 @@ public final class AdminCommands {
                             .then(CommandManager.literal("off").executes(context -> scheduledStopBossbar(context, mod, "off")))
                             .then(CommandManager.literal("self").executes(context -> scheduledStopBossbar(context, mod, "self")))
                             .then(CommandManager.literal("all").executes(context -> scheduledStopBossbar(context, mod, "all"))))
+                    .then(CommandManager.literal("kick")
+                            .then(CommandManager.literal("all").executes(context -> scheduledStopKickPolicy(context, mod, "all")))
+                            .then(CommandManager.literal("non_admin").executes(context -> scheduledStopKickPolicy(context, mod, "non_admin")))
+                            .then(CommandManager.literal("nobody").executes(context -> scheduledStopKickPolicy(context, mod, "nobody"))))
                     .then(CommandManager.literal("cancel")
                             .executes(context -> scheduledStopCancel(context, mod))));
 
@@ -413,6 +420,24 @@ public final class AdminCommands {
         }
         mod.moderationManager().setSilentDisconnect(actor, enabled);
         context.getSource().sendFeedback(() -> Text.literal("Silent disconnect set to " + enabled + "."), false);
+        return 1;
+    }
+
+    private static int vanishRejoin(CommandContext<ServerCommandSource> context, AdminMod mod, boolean confirmed) {
+        ServerPlayerEntity actor = context.getSource().getPlayer();
+        if (actor == null) {
+            context.getSource().sendError(Text.literal("Only players can use this."));
+            return 0;
+        }
+        if (!confirmed) {
+            context.getSource().sendFeedback(() -> Text.literal("Vanish reconnect canceled."), false);
+            return 1;
+        }
+        if (!mod.vanishManager().isVanished(actor.getUuid())) {
+            context.getSource().sendError(Text.literal("Enable vanish first."));
+            return 0;
+        }
+        mod.moderationManager().beginVanishReconnectFlow(actor);
         return 1;
     }
 
@@ -1436,6 +1461,22 @@ public final class AdminCommands {
         }
         mod.scheduledStopManager().setBossBarMode(actor, context.getSource().getServer(), mode);
         context.getSource().sendFeedback(() -> Text.literal("Server stop bossbar mode set to " + mode.id + "."), true);
+        return 1;
+    }
+
+    private static int scheduledStopKickPolicy(CommandContext<ServerCommandSource> context, AdminMod mod, String rawPolicy) {
+        com.b1progame.adminmod.maintenance.ScheduledStopManager.KickPolicy policy = switch (rawPolicy.toLowerCase(Locale.ROOT)) {
+            case "all" -> com.b1progame.adminmod.maintenance.ScheduledStopManager.KickPolicy.ALL;
+            case "non_admin" -> com.b1progame.adminmod.maintenance.ScheduledStopManager.KickPolicy.NON_ADMIN;
+            case "nobody" -> com.b1progame.adminmod.maintenance.ScheduledStopManager.KickPolicy.NOBODY;
+            default -> null;
+        };
+        if (policy == null) {
+            context.getSource().sendError(Text.literal("Invalid kick policy. Use all|non_admin|nobody."));
+            return 0;
+        }
+        mod.scheduledStopManager().setKickPolicy(context.getSource().getPlayer(), policy);
+        context.getSource().sendFeedback(() -> Text.literal("Server stop kick policy set to " + policy.id + "."), true);
         return 1;
     }
 

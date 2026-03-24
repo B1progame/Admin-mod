@@ -63,6 +63,11 @@ public final class StateManager {
         if (state.vanishLeaveMessageToggles == null) state.vanishLeaveMessageToggles = new HashMap<>();
         if (state.silentJoinToggles == null) state.silentJoinToggles = new HashMap<>();
         if (state.silentDisconnectToggles == null) state.silentDisconnectToggles = new HashMap<>();
+        if (state.consoleChatToggles == null) state.consoleChatToggles = new HashMap<>();
+        if (state.pendingSilentJoinRestore == null) state.pendingSilentJoinRestore = new HashMap<>();
+        if (state.pendingSilentDisconnectRestore == null) state.pendingSilentDisconnectRestore = new HashMap<>();
+        if (state.vanishFlySpeedLevels == null) state.vanishFlySpeedLevels = new HashMap<>();
+        if (state.vanishNightVisionToggles == null) state.vanishNightVisionToggles = new HashMap<>();
         if (state.xrayOreEnabled == null) state.xrayOreEnabled = new HashMap<>();
         if (state.commandHistory == null) state.commandHistory = new ArrayList<>();
         if (state.playerHistory == null) state.playerHistory = new HashMap<>();

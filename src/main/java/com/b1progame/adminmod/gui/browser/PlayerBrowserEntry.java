@@ -1,5 +1,6 @@
 package com.b1progame.adminmod.gui.browser;
 
+import com.mojang.authlib.GameProfile;
 import net.minecraft.world.GameMode;
 
 import java.util.UUID;
@@ -14,4 +15,5 @@ public final class PlayerBrowserEntry {
     public float health;
     public GameMode gameMode;
     public boolean dataAvailable;
+    public GameProfile profile;
 }

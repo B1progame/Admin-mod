@@ -12,14 +12,13 @@ import net.minecraft.util.Formatting;
 import java.util.List;
 
 public final class AdminToolsMenuHandler extends AbstractActionMenuScreenHandler {
-    private static final int SLOT_VANISH = 10;
+    private static final int SLOT_VANISH_SETTINGS = 10;
     private static final int SLOT_STAFF_CHAT = 12;
     private static final int SLOT_RELOAD = 14;
     private static final int SLOT_SILENT_JOIN = 16;
     private static final int SLOT_SILENT_QUIT = 20;
-    private static final int SLOT_VANISH_LEAVE_MSG = 22;
+    private static final int SLOT_CONSOLE_CHAT = 22;
     private static final int SLOT_XRAY_SETTINGS = 24;
-    private static final int SLOT_VANISH_NOCLIP = 26;
     private static final int SLOT_BACK = 31;
 
     private final AdminGuiService guiService;
@@ -33,10 +32,10 @@ public final class AdminToolsMenuHandler extends AbstractActionMenuScreenHandler
     @Override
     protected void buildMenu() {
         boolean vanished = this.guiService.vanishManager().isVanished(this.viewer.getUuid());
-        this.menuInventory.setStack(SLOT_VANISH, GuiItemFactory.button(
-                vanished ? Items.RED_DYE : Items.LIME_DYE,
-                Text.literal("Vanish").formatted(vanished ? Formatting.RED : Formatting.GREEN),
-                List.of(Text.literal(vanished ? "State: ON" : "State: OFF"))
+        this.menuInventory.setStack(SLOT_VANISH_SETTINGS, GuiItemFactory.button(
+                Items.ENDER_EYE,
+                Text.literal("Vanish Settings").formatted(Formatting.AQUA),
+                List.of(Text.literal(vanished ? "Vanish is currently ON" : "Vanish is currently OFF"), Text.literal("Open vanish controls"))
         ));
         boolean staffChat = this.guiService.moderationManager().isStaffChatEnabled(this.viewer.getUuid());
         this.menuInventory.setStack(SLOT_STAFF_CHAT, GuiItemFactory.button(
@@ -55,31 +54,22 @@ public final class AdminToolsMenuHandler extends AbstractActionMenuScreenHandler
                 Text.literal("Silent Join").formatted(silentJoin ? Formatting.GREEN : Formatting.RED),
                 List.of(Text.literal(silentJoin ? "ON" : "OFF"))
         ));
+        boolean consoleChat = this.guiService.moderationManager().isConsoleChatEnabled(this.viewer.getUuid());
+        this.menuInventory.setStack(SLOT_CONSOLE_CHAT, GuiItemFactory.button(
+                consoleChat ? Items.COMMAND_BLOCK : Items.CHAIN_COMMAND_BLOCK,
+                Text.literal("Console Chat").formatted(consoleChat ? Formatting.GREEN : Formatting.RED),
+                List.of(Text.literal(consoleChat ? "ON" : "OFF"), Text.literal("Send normal chat as nameless server message"))
+        ));
         boolean silentQuit = this.guiService.moderationManager().isSilentDisconnectEnabled(this.viewer.getUuid());
         this.menuInventory.setStack(SLOT_SILENT_QUIT, GuiItemFactory.button(
                 silentQuit ? Items.LIME_BANNER : Items.RED_BANNER,
                 Text.literal("Silent Disconnect").formatted(silentQuit ? Formatting.GREEN : Formatting.RED),
                 List.of(Text.literal(silentQuit ? "ON" : "OFF"))
         ));
-        boolean leaveMessage = this.guiService.vanishManager().isLeaveMessageEnabled(this.viewer.getUuid());
-        this.menuInventory.setStack(SLOT_VANISH_LEAVE_MSG, GuiItemFactory.button(
-                leaveMessage ? Items.LIME_DYE : Items.GRAY_DYE,
-                Text.literal("Vanish Leave Message").formatted(leaveMessage ? Formatting.GREEN : Formatting.RED),
-                List.of(Text.literal(leaveMessage ? "ON" : "OFF"))
-        ));
         this.menuInventory.setStack(SLOT_XRAY_SETTINGS, GuiItemFactory.button(
                 Items.DEEPSLATE_DIAMOND_ORE,
                 Text.literal("Xray Settings").formatted(Formatting.AQUA),
                 List.of(Text.literal("Open tracker settings"))
-        ));
-        boolean noClip = this.guiService.configManager().get().vanish_noclip_enabled;
-        this.menuInventory.setStack(SLOT_VANISH_NOCLIP, GuiItemFactory.button(
-                noClip ? Items.ENDER_PEARL : Items.SNOWBALL,
-                Text.literal("Vanish NoClip").formatted(noClip ? Formatting.GREEN : Formatting.RED),
-                List.of(
-                        Text.literal(noClip ? "ON" : "OFF"),
-                        Text.literal("When ON, vanished staff can pass through blocks")
-                )
         ));
         this.menuInventory.setStack(SLOT_BACK, GuiItemFactory.backButton(this.guiService.configManager()));
     }
@@ -91,11 +81,8 @@ public final class AdminToolsMenuHandler extends AbstractActionMenuScreenHandler
             this.guiService.openMain(viewer);
             return;
         }
-        if (slot == SLOT_VANISH) {
-            boolean vanished = this.guiService.vanishManager().toggleVanish(viewer, viewer);
-            FeedbackUtil.success(viewer, this.guiService.configManager(),
-                    Text.translatable(vanished ? "message.adminmod.vanish.on" : "message.adminmod.vanish.off"));
-            this.guiService.openAdminToolsMenu(viewer);
+        if (slot == SLOT_VANISH_SETTINGS) {
+            this.guiService.openVanishSettings(viewer);
             return;
         }
         if (slot == SLOT_STAFF_CHAT) {
@@ -125,23 +112,15 @@ public final class AdminToolsMenuHandler extends AbstractActionMenuScreenHandler
             this.guiService.openAdminToolsMenu(viewer);
             return;
         }
-        if (slot == SLOT_VANISH_LEAVE_MSG) {
-            boolean next = !this.guiService.vanishManager().isLeaveMessageEnabled(viewer.getUuid());
-            this.guiService.vanishManager().setLeaveMessageEnabled(viewer, next);
-            FeedbackUtil.success(viewer, this.guiService.configManager(), Text.literal("Vanish leave-message: " + (next ? "ON" : "OFF")));
+        if (slot == SLOT_CONSOLE_CHAT) {
+            boolean next = !this.guiService.moderationManager().isConsoleChatEnabled(viewer.getUuid());
+            this.guiService.moderationManager().setConsoleChat(viewer, next);
+            FeedbackUtil.success(viewer, this.guiService.configManager(), Text.literal("Console chat: " + (next ? "ON" : "OFF")));
             this.guiService.openAdminToolsMenu(viewer);
             return;
         }
         if (slot == SLOT_XRAY_SETTINGS) {
             this.guiService.openXraySettings(viewer);
-            return;
-        }
-        if (slot == SLOT_VANISH_NOCLIP) {
-            boolean next = !this.guiService.configManager().get().vanish_noclip_enabled;
-            this.guiService.configManager().get().vanish_noclip_enabled = next;
-            this.guiService.configManager().save();
-            FeedbackUtil.success(viewer, this.guiService.configManager(), Text.literal("Vanish NoClip: " + (next ? "ON" : "OFF")));
-            this.guiService.openAdminToolsMenu(viewer);
         }
     }
 }

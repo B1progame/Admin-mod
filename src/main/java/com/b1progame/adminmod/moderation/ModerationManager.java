@@ -90,6 +90,7 @@ public final class ModerationManager {
         if (checkBanOnJoin(player)) {
             return;
         }
+        restoreSilentSettingsAfterVanishRejoin(player);
         updateHistory(player, true, false);
         openSessionIfStaff(player, "join");
         deliverPendingStaffMail(player);
@@ -784,6 +785,10 @@ public final class ModerationManager {
         return this.stateManager.state().silentDisconnectToggles.getOrDefault(staffUuid.toString(), this.configManager.get().silent_disconnect_default);
     }
 
+    public synchronized boolean isConsoleChatEnabled(UUID staffUuid) {
+        return this.stateManager.state().consoleChatToggles.getOrDefault(staffUuid.toString(), false);
+    }
+
     public synchronized void setSilentJoin(ServerPlayerEntity actor, boolean enabled) {
         this.stateManager.state().silentJoinToggles.put(actor.getUuidAsString(), enabled);
         this.stateManager.markDirty(ServerAccess.server(actor));
@@ -796,6 +801,28 @@ public final class ModerationManager {
         this.stateManager.markDirty(ServerAccess.server(actor));
         AuditLogger.sensitive(this.configManager, AuditLogger.actor(actor) + " set silent disconnect to " + enabled);
         recordStaffAction(actor, "silent_disconnect_toggle", String.valueOf(enabled));
+    }
+
+    public synchronized void setConsoleChat(ServerPlayerEntity actor, boolean enabled) {
+        this.stateManager.state().consoleChatToggles.put(actor.getUuidAsString(), enabled);
+        this.stateManager.markDirty(ServerAccess.server(actor));
+        AuditLogger.sensitive(this.configManager, AuditLogger.actor(actor) + " set console chat mode to " + enabled);
+        recordStaffAction(actor, "console_chat_toggle", String.valueOf(enabled));
+    }
+
+    public synchronized void beginVanishReconnectFlow(ServerPlayerEntity actor) {
+        if (actor == null) {
+            return;
+        }
+        String key = actor.getUuidAsString();
+        this.stateManager.state().pendingSilentJoinRestore.put(key, isSilentJoinEnabled(actor.getUuid()));
+        this.stateManager.state().pendingSilentDisconnectRestore.put(key, isSilentDisconnectEnabled(actor.getUuid()));
+        this.stateManager.state().silentJoinToggles.put(key, true);
+        this.stateManager.state().silentDisconnectToggles.put(key, true);
+        this.stateManager.markDirty(ServerAccess.server(actor));
+        AuditLogger.sensitive(this.configManager, AuditLogger.actor(actor) + " started vanish reconnect flow");
+        recordStaffAction(actor, "vanish_reconnect_flow", "silentJoin=true,silentDisconnect=true");
+        actor.networkHandler.disconnect(Text.literal("Reconnect now. Silent join/disconnect were enabled temporarily and will be restored on login."));
     }
 
     public synchronized List<com.b1progame.adminmod.state.CommandHistoryEntryData> listCommandHistory(UUID targetUuid, int limit) {
@@ -1161,6 +1188,10 @@ public final class ModerationManager {
                 sender.sendMessage(Text.literal(this.configManager.get().mute.mute_message).formatted(Formatting.RED), false);
                 return false;
             }
+            if (isConsoleChatEnabled(sender.getUuid())) {
+                sendConsoleChat(sender, signedMessage.getSignedContent());
+                return false;
+            }
             if (isStaffChatEnabled(sender.getUuid())) {
                 sendStaffChat(sender, signedMessage.getSignedContent());
                 return false;
@@ -1476,7 +1507,9 @@ public final class ModerationManager {
         String key = content.getKey();
         boolean isJoin = "multiplayer.player.joined".equals(key) || "multiplayer.player.joined.renamed".equals(key);
         boolean isLeave = "multiplayer.player.left".equals(key);
-        if (!isJoin && !isLeave) {
+        boolean isDeath = key.startsWith("death.");
+        boolean isAdvancement = key.startsWith("chat.type.advancement.");
+        if (!isJoin && !isLeave && !isDeath && !isAdvancement) {
             return true;
         }
         Object[] args = content.getArgs();
@@ -1487,33 +1520,85 @@ public final class ModerationManager {
         if (name.isBlank()) {
             return true;
         }
-        UUID uuid = findPlayerUuidByName(name);
+        UUID uuid = resolveGameMessagePlayerUuid(name);
         if (uuid == null) {
-            // Fallback for cases where message name formatting differs from stored plain name.
-            for (Map.Entry<String, PlayerHistoryData> entry : this.stateManager.state().playerHistory.entrySet()) {
-                String known = entry.getValue().lastKnownName;
-                if (known == null || known.isBlank()) {
-                    continue;
-                }
-                if (name.toLowerCase(Locale.ROOT).contains(known.toLowerCase(Locale.ROOT))) {
-                    try {
-                        uuid = UUID.fromString(entry.getKey());
-                    } catch (IllegalArgumentException ignored) {
-                    }
-                    break;
-                }
-            }
-            if (uuid == null) {
-                return true;
-            }
+            return true;
+        }
+        if (isVanished(uuid)) {
+            return false;
         }
         if (isJoin && isSilentJoinEnabled(uuid)) {
+            AdminMod.LOGGER.info("[AdminMod] silent join: {}", name);
             return false;
         }
         if (isLeave && isSilentDisconnectEnabled(uuid)) {
+            AdminMod.LOGGER.info("[AdminMod] silent disconnect: {}", name);
             return false;
         }
         return true;
+    }
+
+    private void sendConsoleChat(ServerPlayerEntity sender, String message) {
+        if (sender == null) {
+            return;
+        }
+        String resolved = message == null ? "" : message.trim();
+        if (resolved.isBlank()) {
+            return;
+        }
+        MinecraftServer server = ServerAccess.server(sender);
+        Text line = Text.literal(resolved);
+        for (ServerPlayerEntity online : server.getPlayerManager().getPlayerList()) {
+            online.sendMessage(line, false);
+        }
+        AuditLogger.sensitive(this.configManager, "[CONSOLECHAT] " + sender.getGameProfile().name() + ": " + resolved);
+    }
+
+    private void restoreSilentSettingsAfterVanishRejoin(ServerPlayerEntity player) {
+        String key = player.getUuidAsString();
+        Boolean restoreJoin = this.stateManager.state().pendingSilentJoinRestore.remove(key);
+        Boolean restoreDisconnect = this.stateManager.state().pendingSilentDisconnectRestore.remove(key);
+        if (restoreJoin == null && restoreDisconnect == null) {
+            return;
+        }
+        if (restoreJoin != null) {
+            this.stateManager.state().silentJoinToggles.put(key, restoreJoin);
+        }
+        if (restoreDisconnect != null) {
+            this.stateManager.state().silentDisconnectToggles.put(key, restoreDisconnect);
+        }
+        this.stateManager.markDirty(ServerAccess.server(player));
+        player.sendMessage(Text.literal("vanish mode applied completly").formatted(Formatting.GRAY), false);
+        AuditLogger.sensitive(this.configManager, AuditLogger.actor(player) + " had silent settings restored after vanish reconnect");
+    }
+
+    private UUID resolveGameMessagePlayerUuid(String name) {
+        UUID uuid = findPlayerUuidByName(name);
+        if (uuid != null) {
+            return uuid;
+        }
+        // Fallback for messages where name formatting differs from stored plain name.
+        for (Map.Entry<String, PlayerHistoryData> entry : this.stateManager.state().playerHistory.entrySet()) {
+            String known = entry.getValue().lastKnownName;
+            if (known == null || known.isBlank()) {
+                continue;
+            }
+            if (!name.toLowerCase(Locale.ROOT).contains(known.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+            try {
+                return UUID.fromString(entry.getKey());
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private boolean isVanished(UUID uuid) {
+        return AdminMod.get() != null
+                && AdminMod.get().vanishManager() != null
+                && AdminMod.get().vanishManager().isVanished(uuid);
     }
 
     private String extractGameMessagePlayerName(Object rawArg) {

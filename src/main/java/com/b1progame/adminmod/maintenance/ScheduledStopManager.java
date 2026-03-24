@@ -3,6 +3,7 @@ package com.b1progame.adminmod.maintenance;
 import com.b1progame.adminmod.config.ConfigManager;
 import com.b1progame.adminmod.util.AuditLogger;
 import com.b1progame.adminmod.util.DurationParser;
+import com.b1progame.adminmod.util.PermissionUtil;
 import net.minecraft.entity.boss.BossBar;
 import net.minecraft.entity.boss.ServerBossBar;
 import net.minecraft.server.MinecraftServer;
@@ -26,6 +27,18 @@ public final class ScheduledStopManager {
         }
     }
 
+    public enum KickPolicy {
+        ALL("all"),
+        NON_ADMIN("non_admin"),
+        NOBODY("nobody");
+
+        public final String id;
+
+        KickPolicy(String id) {
+            this.id = id;
+        }
+    }
+
     private final ConfigManager configManager;
     private boolean active;
     private long scheduledDurationMillis;
@@ -33,10 +46,14 @@ public final class ScheduledStopManager {
     private long lastFiveMinuteAnnouncementSecond = -1L;
     private boolean announcedOneMinute;
     private boolean announcedThirtySeconds;
+    private boolean announcedFifteenSeconds;
     private long lastSecondCountdownAnnouncement = -1L;
+    private boolean forcedDisconnectAtFiveSeconds;
+    private boolean forcedDisconnectAtOneSecond;
     private UUID actorUuid;
     private String actorName = "console";
-    private BossBarMode bossBarMode = BossBarMode.OFF;
+    private BossBarMode bossBarMode = BossBarMode.SELF;
+    private KickPolicy kickPolicy = KickPolicy.NON_ADMIN;
     private UUID bossBarSelfViewerUuid;
     private final ServerBossBar bossBar = new ServerBossBar(
             Text.literal("Server stop countdown"),
@@ -59,7 +76,10 @@ public final class ScheduledStopManager {
         this.lastFiveMinuteAnnouncementSecond = initialSeconds % 300L == 0L ? initialSeconds : -1L;
         this.announcedOneMinute = false;
         this.announcedThirtySeconds = false;
+        this.announcedFifteenSeconds = false;
         this.lastSecondCountdownAnnouncement = -1L;
+        this.forcedDisconnectAtFiveSeconds = false;
+        this.forcedDisconnectAtOneSecond = false;
         this.actorUuid = actor == null ? null : actor.getUuid();
         this.actorName = actor == null ? "console" : actor.getGameProfile().name();
         if (this.bossBarMode == BossBarMode.SELF && actor != null) {
@@ -89,7 +109,10 @@ public final class ScheduledStopManager {
         this.lastFiveMinuteAnnouncementSecond = -1L;
         this.announcedOneMinute = false;
         this.announcedThirtySeconds = false;
+        this.announcedFifteenSeconds = false;
         this.lastSecondCountdownAnnouncement = -1L;
+        this.forcedDisconnectAtFiveSeconds = false;
+        this.forcedDisconnectAtOneSecond = false;
         this.actorUuid = null;
         this.actorName = "console";
         clearBossBar(server);
@@ -106,10 +129,10 @@ public final class ScheduledStopManager {
 
     public synchronized String statusText() {
         if (!this.active) {
-            return "No scheduled server stop is active. Bossbar mode: " + this.bossBarMode.id + ".";
+            return "No scheduled server stop is active. Bossbar mode: " + this.bossBarMode.id + ". Kick policy: " + this.kickPolicy.id + ".";
         }
         long remaining = Math.max(0L, this.stopAtEpochMillis - System.currentTimeMillis());
-        return "Scheduled stop in " + DurationParser.formatMillis(remaining) + " (by " + this.actorName + "). Bossbar mode: " + this.bossBarMode.id + ".";
+        return "Scheduled stop in " + DurationParser.formatMillis(remaining) + " (by " + this.actorName + "). Bossbar mode: " + this.bossBarMode.id + ". Kick policy: " + this.kickPolicy.id + ".";
     }
 
     public synchronized boolean isActive() {
@@ -136,6 +159,17 @@ public final class ScheduledStopManager {
         );
     }
 
+    public synchronized void setKickPolicy(ServerPlayerEntity actor, KickPolicy policy) {
+        if (policy == null) {
+            return;
+        }
+        this.kickPolicy = policy;
+        AuditLogger.sensitive(
+                this.configManager,
+                (actor == null ? "console" : AuditLogger.actor(actor)) + " set sstop kick policy to " + policy.id
+        );
+    }
+
     public synchronized void tick(MinecraftServer server) {
         if (!this.active || server == null) {
             return;
@@ -143,13 +177,20 @@ public final class ScheduledStopManager {
         long now = System.currentTimeMillis();
         long remainingMillis = this.stopAtEpochMillis - now;
         if (remainingMillis <= 0L) {
+            if (!this.forcedDisconnectAtOneSecond) {
+                this.forcedDisconnectAtOneSecond = true;
+                forceDisconnectAllAtFinalSecond(server);
+            }
             this.active = false;
             this.scheduledDurationMillis = 0L;
             this.stopAtEpochMillis = 0L;
             this.lastFiveMinuteAnnouncementSecond = -1L;
             this.announcedOneMinute = false;
             this.announcedThirtySeconds = false;
+            this.announcedFifteenSeconds = false;
             this.lastSecondCountdownAnnouncement = -1L;
+            this.forcedDisconnectAtFiveSeconds = false;
+            this.forcedDisconnectAtOneSecond = false;
             clearBossBar(server);
             broadcast(server, Text.literal("[ServerStop] ").formatted(Formatting.DARK_RED)
                     .append(Text.literal("Stopping server now.").formatted(Formatting.RED)));
@@ -174,10 +215,22 @@ public final class ScheduledStopManager {
                     .append(Text.literal("30s").formatted(Formatting.GOLD))
                     .append(Text.literal(".").formatted(Formatting.RED)));
         }
-        if (remainingSeconds <= 15L) {
+        if (!this.announcedFifteenSeconds && remainingSeconds <= 15L && remainingSeconds > 10L) {
+            this.announcedFifteenSeconds = true;
+            broadcast(server, countdownText(15));
+        }
+        if (remainingSeconds <= 10L) {
             if (remainingSeconds != this.lastSecondCountdownAnnouncement) {
                 this.lastSecondCountdownAnnouncement = remainingSeconds;
                 broadcast(server, countdownText((int) remainingSeconds));
+            }
+            if (remainingSeconds <= 5L && !this.forcedDisconnectAtFiveSeconds) {
+                this.forcedDisconnectAtFiveSeconds = true;
+                forceCloseScreensAndDisconnectAll(server);
+            }
+            if (remainingSeconds <= 1L && !this.forcedDisconnectAtOneSecond) {
+                this.forcedDisconnectAtOneSecond = true;
+                forceDisconnectAllAtFinalSecond(server);
             }
             return;
         }
@@ -242,5 +295,37 @@ public final class ScheduledStopManager {
 
     private void clearBossBar(MinecraftServer server) {
         this.bossBar.clearPlayers();
+    }
+
+    private void forceCloseScreensAndDisconnectAll(MinecraftServer server) {
+        for (ServerPlayerEntity player : java.util.List.copyOf(server.getPlayerManager().getPlayerList())) {
+            if (this.kickPolicy == KickPolicy.NOBODY) {
+                continue;
+            }
+            if (this.kickPolicy == KickPolicy.NON_ADMIN && PermissionUtil.canUseAdminGui(player, this.configManager)) {
+                continue;
+            }
+            if (player.currentScreenHandler != player.playerScreenHandler) {
+                player.closeHandledScreen();
+            }
+            player.networkHandler.disconnect(
+                    Text.literal("[ServerStop] ").formatted(Formatting.DARK_RED)
+                            .append(Text.literal("Server restart in progress. You were disconnected to save inventory safely.").formatted(Formatting.RED))
+            );
+        }
+        AuditLogger.sensitive(this.configManager, "scheduled server stop pre-shutdown disconnect executed at 5s (kick policy: " + this.kickPolicy.id + ")");
+    }
+
+    private void forceDisconnectAllAtFinalSecond(MinecraftServer server) {
+        for (ServerPlayerEntity player : java.util.List.copyOf(server.getPlayerManager().getPlayerList())) {
+            if (player.currentScreenHandler != player.playerScreenHandler) {
+                player.closeHandledScreen();
+            }
+            player.networkHandler.disconnect(
+                    Text.literal("[ServerStop] ").formatted(Formatting.DARK_RED)
+                            .append(Text.literal("Server stopping now.").formatted(Formatting.RED))
+            );
+        }
+        AuditLogger.sensitive(this.configManager, "scheduled server stop final disconnect executed at 1s (all players)");
     }
 }

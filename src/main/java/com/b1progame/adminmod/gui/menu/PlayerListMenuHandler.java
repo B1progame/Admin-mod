@@ -77,7 +77,7 @@ public final class PlayerListMenuHandler extends AbstractActionMenuScreenHandler
             }
             PlayerBrowserEntry entry = row.entry;
             this.entryBySlot.put(slot, entry.uuid);
-            this.menuInventory.setStack(slot, GuiItemFactory.playerHead(entry.uuid, entry.name, buildLore(entry)));
+            this.menuInventory.setStack(slot, GuiItemFactory.playerHead(entry.profile, entry.name, buildLore(entry)));
         }
 
         this.menuInventory.setStack(SLOT_BACK, GuiItemFactory.backButton(this.guiService.configManager()));

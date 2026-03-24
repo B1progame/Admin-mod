@@ -46,9 +46,19 @@ public final class GuiItemFactory {
     }
 
     public static ItemStack playerHead(UUID uuid, String name, List<String> lore) {
+        return playerHead(new GameProfile(uuid, name), name, lore);
+    }
+
+    public static ItemStack playerHead(GameProfile profile, String fallbackName, List<String> lore) {
         ItemStack stack = new ItemStack(Items.PLAYER_HEAD);
-        stack.set(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(new GameProfile(uuid, name)));
-        stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(name).formatted(Formatting.GOLD));
+        GameProfile resolvedProfile = profile == null
+                ? new GameProfile(UUID.randomUUID(), fallbackName)
+                : profile;
+        String displayName = resolvedProfile.name() == null || resolvedProfile.name().isBlank()
+                ? fallbackName
+                : resolvedProfile.name();
+        stack.set(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(resolvedProfile));
+        stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(displayName).formatted(Formatting.GOLD));
         if (!lore.isEmpty()) {
             List<Text> textLore = new ArrayList<>();
             for (String line : lore) {

@@ -84,7 +84,11 @@ public final class PlayerManagementMenuHandler extends AbstractActionMenuScreenH
             stateLore.add("State: Watchlisted");
         }
 
-        this.menuInventory.setStack(SLOT_TARGET_HEAD, GuiItemFactory.playerHead(this.targetUuid, targetName, stateLore));
+        this.menuInventory.setStack(SLOT_TARGET_HEAD, GuiItemFactory.playerHead(
+                target == null ? null : target.profile,
+                targetName,
+                stateLore
+        ));
         this.menuInventory.setStack(SLOT_INV_MENU, GuiItemFactory.button(
                 Items.CHEST,
                 Text.literal("Inventory Tools").formatted(Formatting.GOLD),

@@ -14,6 +14,8 @@
   "vanished_admins_can_see_other_vanished": true,
   "staff_can_see_vanished_staff": true,
   "vanish_noclip_enabled": false,
+  "vanish_load_chunks_enabled": true,
+  "vanish_load_entities_enabled": true,
   "silent_connect_default": false,
   "silent_disconnect_default": false,
   "freeze": {
@@ -171,7 +173,8 @@
     "snapshots": "gui.adminmod.snapshots.title",
     "temp_ban_duration": "gui.adminmod.temp_ban.duration.title",
     "rollback_lite": "gui.adminmod.rollback.title",
-    "xray_settings": "gui.adminmod.xray_settings.title"
+    "xray_settings": "gui.adminmod.xray_settings.title",
+    "vanish_settings": "gui.adminmod.vanish_settings.title"
   },
   "sound_feedback_enabled": true,
   "logging": {

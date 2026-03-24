@@ -1,11 +1,13 @@
 package com.b1progame.adminmod.mixin;
 
 import com.b1progame.adminmod.AdminMod;
+import com.b1progame.adminmod.util.PermissionUtil;
 import net.minecraft.network.packet.c2s.play.ChatCommandSignedC2SPacket;
 import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
 import net.minecraft.network.packet.c2s.play.CommandExecutionC2SPacket;
 import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
 import net.minecraft.network.packet.c2s.play.UpdateSignC2SPacket;
+import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.spongepowered.asm.mixin.Final;
@@ -13,6 +15,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ServerPlayNetworkHandler.class)
@@ -31,6 +34,17 @@ public abstract class ServerPlayNetworkHandlerMixin {
         if (consumed) {
             ci.cancel();
         }
+    }
+
+    @Redirect(
+            method = "onClickSlot",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerPlayerEntity;isSpectator()Z")
+    )
+    private boolean adminmod$allowAdminGuiSlotClicksInSpectator(ServerPlayerEntity player) {
+        if (adminmod$shouldBypassSpectatorScreenRestriction()) {
+            return false;
+        }
+        return player.isSpectator();
     }
 
     @Inject(method = "onClickSlot", at = @At("HEAD"), cancellable = true)
@@ -71,5 +85,19 @@ public abstract class ServerPlayNetworkHandlerMixin {
         if (AdminMod.get().vanishManager().interceptDirectMessageCommand(this.player, packet.command())) {
             ci.cancel();
         }
+    }
+
+    private boolean adminmod$shouldBypassSpectatorScreenRestriction() {
+        if (AdminMod.get() == null || AdminMod.get().configManager() == null) {
+            return false;
+        }
+        if (!this.player.isSpectator() || !PermissionUtil.canUseAdminGui(this.player, AdminMod.get().configManager())) {
+            return false;
+        }
+        ScreenHandler handler = this.player.currentScreenHandler;
+        if (handler == null) {
+            return false;
+        }
+        return handler.getClass().getName().startsWith("com.b1progame.adminmod.gui.");
     }
 }

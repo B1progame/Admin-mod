@@ -20,6 +20,7 @@ import com.b1progame.adminmod.gui.menu.StaffMailMenuHandler;
 import com.b1progame.adminmod.gui.menu.TempOpConfirmMenuHandler;
 import com.b1progame.adminmod.gui.menu.TempOpDurationMenuHandler;
 import com.b1progame.adminmod.gui.menu.TempBanDurationMenuHandler;
+import com.b1progame.adminmod.gui.menu.VanishSettingsMenuHandler;
 import com.b1progame.adminmod.gui.menu.WorldMenuHandler;
 import com.b1progame.adminmod.gui.menu.XraySettingsMenuHandler;
 import com.b1progame.adminmod.gui.search.PlayerSearchInputManager;
@@ -194,6 +195,13 @@ public final class AdminGuiService {
         ));
     }
 
+    public void openVanishSettings(ServerPlayerEntity viewer) {
+        viewer.openHandledScreen(new net.minecraft.screen.SimpleNamedScreenHandlerFactory(
+                (syncId, inventory, player) -> new VanishSettingsMenuHandler(syncId, inventory, this),
+                guiTitle(this.configManager.get().gui_titles.vanish_settings)
+        ));
+    }
+
     public void openStaffMail(ServerPlayerEntity viewer, int page) {
         viewer.openHandledScreen(new net.minecraft.screen.SimpleNamedScreenHandlerFactory(
                 (syncId, inventory, player) -> new StaffMailMenuHandler(syncId, inventory, this, page),
@@ -257,6 +265,7 @@ public final class AdminGuiService {
             case "gui.adminmod.temp_ban.duration.title" -> "Temp Ban Duration";
             case "gui.adminmod.rollback.title" -> "Rollback Lite";
             case "gui.adminmod.xray_settings.title" -> "Xray Settings";
+            case "gui.adminmod.vanish_settings.title" -> "Vanish Settings";
             default -> key;
         });
     }

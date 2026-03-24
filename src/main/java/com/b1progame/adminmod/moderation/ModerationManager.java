@@ -40,6 +40,7 @@ import net.minecraft.server.WhitelistEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.ClickEvent;
+import net.minecraft.text.HoverEvent;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableTextContent;
@@ -1697,6 +1698,18 @@ public final class ModerationManager {
                 .replace("%player%", resolvedName)
                 .replace("%uuid%", resolvedUuid);
         Text line = Text.literal(message).formatted(Formatting.GOLD);
+        try {
+            UUID uuid = UUID.fromString(resolvedUuid);
+            Text whitelistButton = Text.literal(" [Put on whitelist]")
+                    .setStyle(Style.EMPTY
+                            .withColor(Formatting.GREEN)
+                            .withBold(true)
+                            .withClickEvent(new ClickEvent.RunCommand("/admin whitelist confirm " + uuid + " " + resolvedName))
+                            .withHoverEvent(new HoverEvent.ShowText(Text.literal("Click to confirm whitelist for " + resolvedName))));
+            line = line.copy().append(whitelistButton);
+        } catch (IllegalArgumentException ignored) {
+            // Keep plain notice if UUID is missing/invalid.
+        }
         int delivered = sendStaffNotice(line, null);
         if (delivered == 0 && settings.queue_offline_staff_mail) {
             StaffMailEntryData mail = new StaffMailEntryData();

@@ -70,7 +70,20 @@ public final class AdminCommands {
                             .then(CommandManager.literal("clear").executes(context -> clearStaffMail(context, mod))))
                     .then(CommandManager.literal("commandhistory")
                             .then(CommandManager.argument("player", StringArgumentType.word())
-                                    .executes(context -> commandHistory(context, mod)))));
+                                    .executes(context -> commandHistory(context, mod))))
+                    .then(CommandManager.literal("whitelist")
+                            .then(CommandManager.literal("add")
+                                    .then(CommandManager.argument("uuid", StringArgumentType.word())
+                                            .then(CommandManager.argument("name", StringArgumentType.word())
+                                                    .executes(context -> whitelistAdd(context, mod)))))
+                            .then(CommandManager.literal("confirm")
+                                    .then(CommandManager.argument("uuid", StringArgumentType.word())
+                                            .then(CommandManager.argument("name", StringArgumentType.word())
+                                                    .executes(context -> whitelistConfirm(context, mod)))))
+                            .then(CommandManager.literal("cancel")
+                                    .then(CommandManager.argument("uuid", StringArgumentType.word())
+                                            .then(CommandManager.argument("name", StringArgumentType.word())
+                                                    .executes(context -> whitelistCancel(context, mod)))))));
             dispatcher.register(CommandManager.literal("admingui")
                     .requires(source -> hasAdminCommandPermission(source, mod))
                     .executes(context -> openMain(context, mod)));
@@ -753,6 +766,70 @@ public final class AdminCommands {
             return 0;
         }
         context.getSource().sendFeedback(() -> Text.literal("Unbanned " + target + "."), true);
+        return 1;
+    }
+
+    private static int whitelistAdd(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        if (!hasAdminCommandPermission(context.getSource(), mod)) {
+            context.getSource().sendError(Text.literal("You do not have permission."));
+            return 0;
+        }
+        String rawUuid = StringArgumentType.getString(context, "uuid");
+        String targetName = StringArgumentType.getString(context, "name");
+        UUID targetUuid;
+        try {
+            targetUuid = UUID.fromString(rawUuid);
+        } catch (IllegalArgumentException exception) {
+            context.getSource().sendError(Text.literal("Invalid UUID."));
+            return 0;
+        }
+        boolean changed = mod.moderationManager().setWhitelisted(context.getSource().getPlayer(), targetUuid, targetName, true);
+        if (!changed) {
+            context.getSource().sendError(Text.literal(targetName + " is already whitelisted."));
+            return 0;
+        }
+        context.getSource().sendFeedback(() -> Text.literal("Whitelisted " + targetName + " (" + targetUuid + ")."), true);
+        return 1;
+    }
+
+    private static int whitelistConfirm(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        if (!hasAdminCommandPermission(context.getSource(), mod)) {
+            context.getSource().sendError(Text.literal("You do not have permission."));
+            return 0;
+        }
+        String rawUuid = StringArgumentType.getString(context, "uuid");
+        String targetName = StringArgumentType.getString(context, "name");
+        UUID targetUuid;
+        try {
+            targetUuid = UUID.fromString(rawUuid);
+        } catch (IllegalArgumentException exception) {
+            context.getSource().sendError(Text.literal("Invalid UUID."));
+            return 0;
+        }
+
+        Text yes = Text.literal("[YES]").setStyle(Style.EMPTY
+                .withColor(Formatting.GREEN)
+                .withBold(true)
+                .withClickEvent(new ClickEvent.RunCommand("/admin whitelist add " + targetUuid + " " + targetName)));
+        Text no = Text.literal("[NO]").setStyle(Style.EMPTY
+                .withColor(Formatting.RED)
+                .withBold(true)
+                .withClickEvent(new ClickEvent.RunCommand("/admin whitelist cancel " + targetUuid + " " + targetName)));
+        Text confirmLine = Text.literal("Confirm whitelist for " + targetName + "? ")
+                .append(yes)
+                .append(Text.literal(" "))
+                .append(no);
+        context.getSource().sendFeedback(() -> confirmLine, false);
+        return 1;
+    }
+
+    private static int whitelistCancel(CommandContext<ServerCommandSource> context, AdminMod mod) {
+        if (!hasAdminCommandPermission(context.getSource(), mod)) {
+            context.getSource().sendError(Text.literal("You do not have permission."));
+            return 0;
+        }
+        String targetName = StringArgumentType.getString(context, "name");
+        context.getSource().sendFeedback(() -> Text.literal("Whitelist action cancelled for " + targetName + "."), false);
         return 1;
     }
 

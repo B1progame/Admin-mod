@@ -57,7 +57,15 @@ public final class GuiItemFactory {
         String displayName = resolvedProfile.name() == null || resolvedProfile.name().isBlank()
                 ? fallbackName
                 : resolvedProfile.name();
-        stack.set(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(resolvedProfile));
+        if (hasTextures(resolvedProfile)) {
+            stack.set(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(resolvedProfile));
+        } else if (resolvedProfile.id() != null) {
+            stack.set(DataComponentTypes.PROFILE, ProfileComponent.ofDynamic(resolvedProfile.id()));
+        } else if (displayName != null && !displayName.isBlank()) {
+            stack.set(DataComponentTypes.PROFILE, ProfileComponent.ofDynamic(displayName));
+        } else {
+            stack.set(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(resolvedProfile));
+        }
         stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(displayName).formatted(Formatting.GOLD));
         if (!lore.isEmpty()) {
             List<Text> textLore = new ArrayList<>();
@@ -67,6 +75,13 @@ public final class GuiItemFactory {
             stack.set(DataComponentTypes.LORE, new LoreComponent(textLore));
         }
         return stack;
+    }
+
+    private static boolean hasTextures(GameProfile profile) {
+        return profile != null
+                && profile.properties() != null
+                && profile.properties().containsKey("textures")
+                && !profile.properties().get("textures").isEmpty();
     }
 
     public static ItemStack backButton(ConfigManager configManager) {

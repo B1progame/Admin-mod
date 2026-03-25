@@ -33,7 +33,6 @@ public final class VanishManager {
     private static final int ACTIONBAR_PERIOD_TICKS = 40;
     private static final int RUNTIME_RECONCILE_PERIOD_TICKS = 20;
     private static final int JOIN_REFRESH_WINDOW_TICKS = 100;
-    private static final int VANISH_LOW_DISTANCE = 2;
     private static final int MIN_VANISH_FLY_SPEED_LEVEL = 1;
     private static final int MAX_VANISH_FLY_SPEED_LEVEL = 10;
     private static final float BASE_FLY_SPEED = 0.05F;
@@ -73,6 +72,44 @@ public final class VanishManager {
 
     public synchronized boolean isVanished(UUID uuid) {
         return this.stateManager.state().vanishedPlayers.contains(uuid.toString());
+    }
+
+    public static int normalizeVanishDistance(int distance) {
+        if (distance <= 0) {
+            return 0;
+        }
+        if (distance == 1) {
+            return 1;
+        }
+        if (distance == 2) {
+            return 2;
+        }
+        if (distance == 3) {
+            return 3;
+        }
+        if (distance == 4) {
+            return 4;
+        }
+        if (distance == 5) {
+            return 5;
+        }
+        if (distance <= 7) {
+            return 7;
+        }
+        return 10;
+    }
+
+    public static int cycleVanishDistance(int distance) {
+        return switch (normalizeVanishDistance(distance)) {
+            case 0 -> 1;
+            case 1 -> 2;
+            case 2 -> 3;
+            case 3 -> 4;
+            case 4 -> 5;
+            case 5 -> 7;
+            case 7 -> 10;
+            default -> 0;
+        };
     }
 
     public synchronized boolean toggleVanish(ServerPlayerEntity actor, ServerPlayerEntity target) {
@@ -238,19 +275,19 @@ public final class VanishManager {
         }
         boolean vanished = isVanished(player.getUuid());
         int chunkDistance = vanished && !this.configManager.get().vanish_load_chunks_enabled
-                ? VANISH_LOW_DISTANCE
+                ? normalizeVanishDistance(this.configManager.get().vanish_load_chunks_distance)
                 : server.getPlayerManager().getViewDistance();
         int simulationDistance = vanished && !this.configManager.get().vanish_load_entities_enabled
-                ? VANISH_LOW_DISTANCE
+                ? normalizeVanishDistance(this.configManager.get().vanish_load_entities_distance)
                 : server.getPlayerManager().getSimulationDistance();
         ViewDistanceState previous = this.lastAppliedViewDistances.get(player.getUuid());
-        ViewDistanceState next = new ViewDistanceState(Math.max(2, chunkDistance), Math.max(2, simulationDistance));
+        ViewDistanceState next = new ViewDistanceState(chunkDistance, simulationDistance);
         if (!force && previous != null && previous.equals(next)) {
             return;
         }
         this.lastAppliedViewDistances.put(player.getUuid(), next);
-        player.networkHandler.sendPacket(new ChunkLoadDistanceS2CPacket(Math.max(2, chunkDistance)));
-        player.networkHandler.sendPacket(new SimulationDistanceS2CPacket(Math.max(2, simulationDistance)));
+        player.networkHandler.sendPacket(new ChunkLoadDistanceS2CPacket(chunkDistance));
+        player.networkHandler.sendPacket(new SimulationDistanceS2CPacket(simulationDistance));
     }
 
     private void applyVanishEnhancements(ServerPlayerEntity player) {

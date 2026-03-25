@@ -15,7 +15,9 @@
   "staff_can_see_vanished_staff": true,
   "vanish_noclip_enabled": false,
   "vanish_load_chunks_enabled": true,
+  "vanish_load_chunks_distance": 2,
   "vanish_load_entities_enabled": true,
+  "vanish_load_entities_distance": 2,
   "silent_connect_default": false,
   "silent_disconnect_default": false,
   "freeze": {

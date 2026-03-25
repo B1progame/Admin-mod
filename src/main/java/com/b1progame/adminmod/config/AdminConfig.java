@@ -17,7 +17,9 @@ public final class AdminConfig {
     public boolean staff_can_see_vanished_staff = true;
     public boolean vanish_noclip_enabled = false;
     public boolean vanish_load_chunks_enabled = true;
+    public int vanish_load_chunks_distance = 2;
     public boolean vanish_load_entities_enabled = true;
+    public int vanish_load_entities_distance = 2;
     public boolean silent_connect_default = false;
     public boolean silent_disconnect_default = false;
     public FreezeSettings freeze = new FreezeSettings();
